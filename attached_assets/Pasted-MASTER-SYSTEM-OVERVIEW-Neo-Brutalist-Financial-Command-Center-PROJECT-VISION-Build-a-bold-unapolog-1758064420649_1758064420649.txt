@@ -1,0 +1,273 @@
+MASTER SYSTEM OVERVIEW: Neo-Brutalist Financial Command Center
+PROJECT VISION
+Build a bold, unapologetically raw financial management system that breaks conventional fintech design patterns. This is a comprehensive property management and personal finance platform serving a landlord with 4 rental properties, multiple income streams, and complex financial workflows. The system must be aggressively functional, visually striking, and brutally efficient.
+DESIGN LANGUAGE: NEO-BRUTALISM
+Core Design Principles
+MANDATORY AESTHETIC REQUIREMENTS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- THICK BLACK BORDERS (4-8px) on EVERYTHING
+- HARSH SHADOWS - Solid black, offset 8-12px
+- NO GRADIENTS - Flat, solid colors only
+- BRUTAL TYPOGRAPHY - Black, bold, oversized
+- ASYMMETRICAL LAYOUTS - Intentionally unbalanced
+- RAW GEOMETRIC SHAPES - Rectangles, no curves
+- EXPOSED STRUCTURE - Show the grid system
+- STARK CONTRASTS - Black on white, white on black
+- MONOSPACE FONTS - For data, courier-style
+- BRUTALIST SPACING - Either cramped or excessive
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Color Palette
+css:root {
+  --brutal-black: #000000;
+  --brutal-white: #FFFFFF;
+  --brutal-red: #FF0000;
+  --brutal-blue: #0000FF;
+  --brutal-yellow: #FFFF00;
+  --brutal-green: #00FF00;
+  --brutal-purple: #FF00FF;
+  --brutal-orange: #FF6600;
+  --brutal-concrete: #C0C0C0;
+  --brutal-steel: #808080;
+}
+
+/* NO TRANSPARENCY, NO GRADIENTS, NO SOFT COLORS */
+Typography Rules
+css/* BRUTALIST FONT STACK */
+--heading-font: 'Helvetica Neue Black', 'Arial Black', sans-serif;
+--body-font: 'Helvetica', 'Arial', sans-serif;
+--data-font: 'Courier New', 'Courier', monospace;
+
+/* BRUTAL SIZE SCALE */
+--text-4xl: 72px;  /* MASSIVE */
+--text-3xl: 56px;  /* HUGE */
+--text-2xl: 48px;  /* BIG */
+--text-xl: 36px;   /* LARGE */
+--text-lg: 24px;   /* MEDIUM */
+--text-base: 18px; /* NORMAL */
+--text-sm: 14px;   /* SMALL */
+
+/* ALL CAPS FOR HEADERS, ALWAYS */
+text-transform: uppercase;
+letter-spacing: 0.05em;
+SYSTEM ARCHITECTURE
+1. CORE FUNCTIONALITY BLOCKS
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃  FINANCIAL COMMAND CENTER                ┃
+┃                                          ┃
+┃  LANDLORD + MULTI-INCOME TRACKER        ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+MANAGES:
+■ 4 RENTAL PROPERTIES (BEDS 1-4)
+■ $5,640/MONTH RENTAL INCOME
+■ 2 JOBS (CROWNE PLAZA + THE STAR)
+■ $10,234/MONTH BILLS & MORTGAGE
+■ 14 ACTIVE SUBSCRIPTIONS
+■ 6+ BANK ACCOUNTS
+2. PRIMARY MODULES
+┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+│ RENT TRACKING   │ │ BILL CRUSHER    │ │ MONEY FLOWS     │
+│ ▓▓▓▓▓▓▓▓▓▓▓▓▓  │ │ ▓▓▓▓▓▓▓▓▓▓▓▓▓  │ │ ▓▓▓▓▓▓▓▓▓▓▓▓▓  │
+│ 4 TENANTS       │ │ MORTGAGE: $9K   │ │ IN: $11,627     │
+│ 97.7% COLLECTED │ │ BILLS: $1,234   │ │ OUT: $8,393     │
+└─────────────────┘ └─────────────────┘ └─────────────────┘
+         ▼                   ▼                   ▼
+┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+│ AUTO-TAGGER     │ │ SUBSCRIPTION    │ │ ANALYTICS       │
+│ ▓▓▓▓▓▓▓▓▓▓▓▓▓  │ │ KILLER          │ │ ENGINE          │
+│ PATTERN MATCH   │ │ ▓▓▓▓▓▓▓▓▓▓▓▓▓  │ │ ▓▓▓▓▓▓▓▓▓▓▓▓▓  │
+│ 95% ACCURACY    │ │ $343/MONTH      │ │ PREDICT FUTURE  │
+└─────────────────┘ └─────────────────┘ └─────────────────┘
+NEO-BRUTALIST UI COMPONENTS
+Navigation Bar
+╔════════════════════════════════════════════════════════════╗
+║ FINANCEFLOW ▓▓▓ DASHBOARD ▓ RENT ▓ BILLS ▓ DATA ▓ [MENU] ║
+╚════════════════════════════════════════════════════════════╝
+Data Cards
+┏━━━━━━━━━━━━━━━━━━━━━┓
+┃ TOTAL BALANCE       ┃
+┃                     ┃
+┃ $14,234.67         ┃
+┃ ████████████░░░░   ┃
+┃                     ┃
+┃ [+2.3% TODAY]       ┃
+┗━━━━━━━━━━━━━━━━━━━━━┛
+Buttons & Actions
+Primary Button:
+╔═══════════════╗
+║ TAKE ACTION   ║ <- 8px black shadow
+╚═══════════════╝
+
+Secondary Button:
+┌───────────────┐
+│ CANCEL        │ <- 4px black shadow
+└───────────────┘
+
+Danger Button:
+█▀▀▀▀▀▀▀▀▀▀▀▀▀▀█
+█ DELETE NOW   █ <- Red background, black text
+█▄▄▄▄▄▄▄▄▄▄▄▄▄▄█
+Form Elements
+Input Field:
+┌──────────────────────┐
+│ ENTER AMOUNT        │ <- 4px black border
+└──────────────────────┘
+
+Dropdown:
+┌──────────────────▼───┐
+│ SELECT CATEGORY  ▼   │
+└──────────────────────┘
+
+Checkbox:
+[■] OPTION ONE    <- Filled = checked
+[□] OPTION TWO    <- Empty = unchecked
+BRUTAL LAYOUT PATTERNS
+Dashboard Grid
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ HEADER - MASSIVE BOLD TEXT                       ┃
+┣━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┫
+┃ CARD 1      ┃ CARD 2      ┃ CARD 3              ┃
+┃ ▓▓▓▓▓▓▓▓▓▓  ┃ ▓▓▓▓▓▓▓▓▓▓  ┃ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓  ┃
+┃             ┃             ┃                     ┃
+┣━━━━━━━━━━━━━┻━━━━━━━━━━━━━┻━━━━━━━━━━━┳━━━━━━━━━┫
+┃ MAIN CONTENT AREA                     ┃ SIDEBAR ┃
+┃ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓  ┃ ▓▓▓▓▓▓▓ ┃
+┃                                        ┃         ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┻━━━━━━━━━┛
+Asymmetrical Sections
+┌────────────┬──────────────────────────┐
+│ BIG TEXT   │ smaller supporting text  │
+│ ▓▓▓▓▓▓▓▓▓  │ data data data data     │
+│            ├──────────────────────────┤
+│            │ MORE DATA               │
+└────────────┴──────────────────────────┘
+DATA VISUALIZATION STYLE
+Charts
+BAR CHART:           PIE CHART:
+█████████ $9,000     ╔═══════╗
+███ $2,234           ║██░░░░░║ <- No rounded edges
+██ $1,456            ║███░░░░║    Harsh segments
+█ $567               ╚═══════╝
+Tables
+╔════════╦════════════╦═════════╦═════════╗
+║ DATE   ║ DESCRIPTION║ AMOUNT  ║ ACTION  ║
+╠════════╬════════════╬═════════╬═════════╣
+║ 17/09  ║ WOOLWORTHS ║ -$142   ║ [EDIT]  ║
+║ 16/09  ║ SALARY     ║ +$1,169 ║ [VIEW]  ║
+╚════════╩════════════╩═════════╩═════════╝
+INTERACTION PATTERNS
+Hover States
+css/* BRUTAL HOVER - INVERTED COLORS */
+.brutal-button:hover {
+  background: black;
+  color: white;
+  box-shadow: 12px 12px 0px black; /* BIGGER SHADOW */
+}
+Active States
+css/* PRESSED STATE - REMOVE SHADOW */
+.brutal-button:active {
+  transform: translate(8px, 8px);
+  box-shadow: none;
+}
+Loading States
+LOADING...
+[████████░░░░░░░░] 50%
+BRUTALLY HONEST PROGRESS
+SPECIFIC MODULE STYLING
+Rent Management
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ TENANT PAYMENT STATUS        ┃
+┣━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━┫
+┃ BED 1   ┃ BED 2   ┃ BED 3    ┃
+┃ PAID    ┃ LATE    ┃ PAID     ┃
+┃ ███████ ┃ ██░░░░░ ┃ ███████  ┃
+┗━━━━━━━━━┻━━━━━━━━┻━━━━━━━━━━┛
+Transaction Entry
+╔═══════════════════════════════╗
+║ ADD TRANSACTION              ║
+╠═══════════════════════════════╣
+║ AMOUNT: [__________]         ║
+║ DATE:   [DD/MM/YYYY]         ║
+║ TYPE:   [EXPENSE ▼]          ║
+╠═══════════════════════════════╣
+║ [SUBMIT] [DESTROY]           ║
+╚═══════════════════════════════╝
+RESPONSIVE BRUTALISM
+Mobile (Vertical Brutalism)
+╔═════════════╗
+║ FINANCE     ║
+║ FLOW        ║
+╠═════════════╣
+║ $14,234     ║
+║ ▓▓▓▓▓▓▓▓▓   ║
+╠═════════════╣
+║ [ACTION]    ║
+║ [ACTION]    ║
+║ [ACTION]    ║
+╚═════════════╝
+Desktop (Horizontal Brutalism)
+╔════════════════════════════════════════════════╗
+║ MASSIVE HEADER TEXT THAT DEMANDS ATTENTION    ║
+╠════════╦═══════════════════════════════════════╣
+║ NAV    ║ CONTENT AREA WITH BRUTAL SPACING      ║
+╚════════╩═══════════════════════════════════════╝
+TECHNICAL SPECIFICATIONS
+CSS Framework Override
+css/* DESTROY BOOTSTRAP/TAILWIND SOFTNESS */
+* {
+  border-radius: 0 !important;
+  transition: none !important;
+  text-rendering: optimizeLegibility;
+}
+
+/* BRUTAL SHADOWS EVERYWHERE */
+.brutal-shadow {
+  box-shadow: 8px 8px 0px #000;
+}
+
+.brutal-shadow-large {
+  box-shadow: 12px 12px 0px #000;
+}
+
+/* THICK BORDERS ON EVERYTHING */
+.brutal-border {
+  border: 4px solid #000;
+}
+Animation (Minimal, Harsh)
+css/* ONLY HARSH, INSTANT TRANSITIONS */
+@keyframes brutal-appear {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* NO EASE, NO SMOOTH, JUST BRUTAL */
+animation-timing-function: linear;
+KEY FUNCTIONAL REQUIREMENTS
+The system must handle:
+
+4 rental properties with individual payment tracking
+Automatic transaction categorization with 95% accuracy
+Multi-bank integration (Up, BOQ, WestPac, ANZ)
+Predictive cash flow analysis
+Smart subscription detection and optimization
+Bill payment scheduling with alerts
+Mortgage optimization calculations
+Tax deduction tracking
+Real-time syncing with Google Sheets backend
+
+IMPLEMENTATION PRIORITIES
+
+BRUTAL FIRST - Aesthetics before comfort
+DATA DENSITY - Show everything, hide nothing
+SPEED - Instant responses, no animations
+HONESTY - Show errors boldly, no soft messages
+FUNCTIONALITY - Every pixel must serve a purpose
+
+FINAL AESTHETIC MANDATE
+THIS IS NOT A FRIENDLY SYSTEM.
+THIS IS A FINANCIAL WEAPON.
+EVERY ELEMENT MUST FEEL POWERFUL.
+EVERY INTERACTION MUST FEEL DECISIVE.
+NO CURVES. NO MERCY. PURE FUNCTION.
+Build this system like a concrete bunker - indestructible, imposing, and absolutely functional. The design should make users feel like they're operating a financial command center from a dystopian future where money is war and data is ammunition.
+REMEMBER: If it looks comfortable, you're doing it wrong. If it looks aggressive, you're on the right track. If it looks like it could survive a nuclear blast, you've achieved neo-brutalist perfection.
