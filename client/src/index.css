@@ -1,3 +1,7 @@
+/* Import Inter font for modern fintech aesthetic */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -14,110 +18,100 @@
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
 
-  --background: 0 0% 100%;
+  /* Modern Fintech Color Palette */
+  --background: 150 10% 97%; /* Very light gray/greenish neutral */
+  --foreground: 0 0% 15%; /* Dark text */
 
-  --foreground: 0 0% 0%;
+  --border: 150 5% 85%; /* Soft neutral borders */
 
-  --border: 0 0% 0%;
+  --card: 0 0% 100%; /* Pure white cards */
+  --card-foreground: 0 0% 15%;
+  --card-border: 150 5% 90%; /* Subtle card borders */
 
-  --card: 0 0% 100%;
+  --sidebar: 150 8% 95%; /* Light sidebar */
+  --sidebar-foreground: 0 0% 15%;
+  --sidebar-border: 150 5% 88%;
+  --sidebar-primary: 121 64% 77%; /* Soft green */
+  --sidebar-primary-foreground: 0 0% 15%;
+  --sidebar-accent: 258 73% 85%; /* Lavender purple */
+  --sidebar-accent-foreground: 0 0% 15%;
+  --sidebar-ring: 121 64% 77%;
 
-  --card-foreground: 0 0% 0%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 15%;
+  --popover-border: 150 5% 90%;
 
-  --card-border: 0 0% 0%;
+  --primary: 121 64% 77%; /* Soft green primary */
+  --primary-foreground: 0 0% 15%;
 
-  --sidebar: 0 0% 91%;
+  --secondary: 258 73% 85%; /* Lavender purple secondary */
+  --secondary-foreground: 0 0% 15%;
 
-  --sidebar-foreground: 0 0% 5%;
+  --muted: 150 5% 92%; /* Muted surface */
+  --muted-foreground: 0 0% 45%; /* Secondary text */
 
-  --sidebar-border: 0 0% 79%;
+  --accent: 258 73% 85%; /* Lavender accent */
+  --accent-foreground: 0 0% 15%;
 
-  --sidebar-primary: 0 0% 5%;
+  --destructive: 0 84% 60%; /* Error red */
+  --destructive-foreground: 0 0% 100%;
 
-  --sidebar-primary-foreground: 0 0% 98%;
+  --success: 142 69% 58%; /* Success green */
+  --success-foreground: 0 0% 100%;
 
-  --sidebar-accent: 0 0% 85%;
+  --warning: 45 93% 47%; /* Warning amber */
+  --warning-foreground: 0 0% 15%;
 
-  --sidebar-accent-foreground: 0 0% 5%;
+  --input: 150 5% 85%;
+  --ring: 121 64% 77%;
 
-  --sidebar-ring: 0 0% 5%;
+  /* Chart colors for data visualization */
+  --chart-1: 121 64% 77%; /* Soft green */
+  --chart-2: 258 73% 85%; /* Lavender */
+  --chart-3: 142 69% 58%; /* Success green */
+  --chart-4: 45 93% 47%; /* Warning amber */
+  --chart-5: 0 0% 45%; /* Neutral gray */
 
-  --popover: 0 0% 88%;
-
-  --popover-foreground: 0 0% 5%;
-
-  --popover-border: 0 0% 76%;
-
-  --primary: 0 0% 0%;
-
-  --primary-foreground: 0 0% 100%;
-
-  --secondary: 0 0% 82%;
-
-  --secondary-foreground: 0 0% 5%;
-
-  --muted: 0 0% 85%;
-
-  --muted-foreground: 0 0% 35%;
-
-  --accent: 0 0% 88%;
-
-  --accent-foreground: 0 0% 5%;
-
-  --destructive: 0 100% 50%;
-
-  --destructive-foreground: 0 0% 0%;
-
-  --input: 0 0% 70%;
-  --ring: 0 0% 5%;
-  --chart-1: 0 0% 5%;
-  --chart-2: 0 84% 60%;
-  --chart-3: 142 76% 36%;
-  --chart-4: 45 93% 47%;
-  --chart-5: 0 0% 35%;
-
-  --font-sans: Inter, 'Helvetica Neue', Arial, sans-serif;
+  /* Typography */
+  --font-sans: 'Inter', 'Helvetica Neue', Arial, sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: 'JetBrains Mono', 'Courier New', Courier, monospace;
-  --radius: 0rem; /* BRUTAL - NO CURVES */
-  --shadow-2xs: 8px 8px 0px 0px hsl(0 0% 0% / 1);
-  --shadow-xs: 8px 8px 0px 0px hsl(0 0% 0% / 1);
-  --shadow-sm: 8px 8px 0px 0px hsl(0 0% 0% / 1);
-  --shadow: 8px 8px 0px 0px hsl(0 0% 0% / 1);
-  --shadow-md: 12px 12px 0px 0px hsl(0 0% 0% / 1);
-  --shadow-lg: 16px 16px 0px 0px hsl(0 0% 0% / 1);
-  --shadow-xl: 20px 20px 0px 0px hsl(0 0% 0% / 1);
-  --shadow-2xl: 24px 24px 0px 0px hsl(0 0% 0% / 1);
+  
+  /* Modern rounded corners */
+  --radius: 1rem; /* 16px rounded corners */
+  
+  /* Soft shadows for depth */
+  --shadow-2xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-xs: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --shadow-xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  
   --tracking-normal: 0em;
   --spacing: 0.25rem;
 
-  /* Automatically computed borders - intensity can be controlled by the user by the --opaque-button-border-intensity setting */
-
-  /* Fallback for older browsers */
+  /* Automatically computed borders */
   --sidebar-primary-border: hsl(var(--sidebar-primary));
   --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
 
-  /* Fallback for older browsers */
   --sidebar-accent-border: hsl(var(--sidebar-accent));
   --sidebar-accent-border: hsl(from hsl(var(--sidebar-accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
 
-  /* Fallback for older browsers */
   --primary-border: hsl(var(--primary));
   --primary-border: hsl(from hsl(var(--primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
 
-  /* Fallback for older browsers */
   --secondary-border: hsl(var(--secondary));
   --secondary-border: hsl(from hsl(var(--secondary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
 
-  /* Fallback for older browsers */
   --muted-border: hsl(var(--muted));
   --muted-border: hsl(from hsl(var(--muted)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
 
-  /* Fallback for older browsers */
   --accent-border: hsl(var(--accent));
   --accent-border: hsl(from hsl(var(--accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
 
-  /* Fallback for older browsers */
   --destructive-border: hsl(var(--destructive));
   --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
 }
@@ -126,84 +120,74 @@
   --button-outline: rgba(255,255,255, .10);
   --badge-outline: rgba(255,255,255, .05);
 
-  --opaque-button-border-intensity: 9;  /* In terms of percentages */
+  --opaque-button-border-intensity: 9;
 
-  /* Backgrounds applied on top of other backgrounds when hovered/active */
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .09);
 
-  --background: 0 0% 8%;
+  /* Dark mode fintech colors */
+  --background: 0 0% 8%; /* Dark background */
+  --foreground: 0 0% 95%; /* Light text */
 
-  --foreground: 0 0% 95%;
+  --border: 0 0% 18%; /* Dark borders */
 
-  --border: 0 0% 18%;
-
-  --card: 0 0% 12%;
-
+  --card: 0 0% 12%; /* Dark cards */
   --card-foreground: 0 0% 95%;
-
   --card-border: 0 0% 22%;
 
   --sidebar: 0 0% 15%;
-
   --sidebar-foreground: 0 0% 95%;
-
   --sidebar-border: 0 0% 25%;
-
-  --sidebar-primary: 0 0% 95%;
-
+  --sidebar-primary: 121 64% 77%; /* Keep soft green in dark mode */
   --sidebar-primary-foreground: 0 0% 8%;
-
-  --sidebar-accent: 0 0% 19%;
-
-  --sidebar-accent-foreground: 0 0% 95%;
-
-  --sidebar-ring: 0 0% 95%;
+  --sidebar-accent: 258 73% 85%; /* Keep lavender in dark mode */
+  --sidebar-accent-foreground: 0 0% 8%;
+  --sidebar-ring: 121 64% 77%;
 
   --popover: 0 0% 16%;
-
   --popover-foreground: 0 0% 95%;
-
   --popover-border: 0 0% 26%;
 
-  --primary: 0 0% 95%;
-
+  --primary: 121 64% 77%; /* Soft green remains in dark mode */
   --primary-foreground: 0 0% 8%;
 
-  --secondary: 0 0% 20%;
-
-  --secondary-foreground: 0 0% 95%;
+  --secondary: 258 73% 85%; /* Lavender remains in dark mode */
+  --secondary-foreground: 0 0% 8%;
 
   --muted: 0 0% 18%;
-
   --muted-foreground: 0 0% 70%;
 
-  --accent: 0 0% 19%;
-
-  --accent-foreground: 0 0% 95%;
+  --accent: 258 73% 85%;
+  --accent-foreground: 0 0% 8%;
 
   --destructive: 0 84% 60%;
-
   --destructive-foreground: 0 0% 95%;
 
-  /* Used as the border around inputs. Dark mode: Should be a border that is light enough to have high contrast when rendered on a --card background. More contrast than standard --border */
+  --success: 142 69% 58%;
+  --success-foreground: 0 0% 8%;
+
+  --warning: 45 93% 47%;
+  --warning-foreground: 0 0% 8%;
+
   --input: 0 0% 35%;
-  --ring: 0 0% 95%;
-  --chart-1: 0 0% 95%;
-  --chart-2: 0 84% 60%;
-  --chart-3: 142 76% 36%;
+  --ring: 121 64% 77%;
+
+  /* Dark mode chart colors */
+  --chart-1: 121 64% 77%;
+  --chart-2: 258 73% 85%;
+  --chart-3: 142 69% 58%;
   --chart-4: 45 93% 47%;
   --chart-5: 0 0% 70%;
 
-  --shadow-2xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.40);
-  --shadow-xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.40);
-  --shadow-sm: 0px 2px 0px 0px hsl(0 0% 0% / 0.40), 0px 1px 2px -1px hsl(0 0% 0% / 0.40);
-  --shadow: 0px 2px 0px 0px hsl(0 0% 0% / 0.40), 0px 1px 2px -1px hsl(0 0% 0% / 0.40);
-  --shadow-md: 0px 2px 0px 0px hsl(0 0% 0% / 0.40), 0px 2px 4px -1px hsl(0 0% 0% / 0.40);
-  --shadow-lg: 0px 2px 0px 0px hsl(0 0% 0% / 0.40), 0px 4px 6px -1px hsl(0 0% 0% / 0.40);
-  --shadow-xl: 0px 2px 0px 0px hsl(0 0% 0% / 0.40), 0px 8px 10px -1px hsl(0 0% 0% / 0.40);
-  --shadow-2xl: 0px 2px 0px 0px hsl(0 0% 0% / 0.40);
-
+  /* Softer shadows in dark mode */
+  --shadow-2xs: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-xs: 0 1px 3px 0 rgba(0, 0, 0, 0.4), 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.4), 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+  --shadow-xl: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
 }
 
 @layer base {
@@ -217,28 +201,10 @@
 }
 
 /**
- * Using the elevate system.
- * Automatic contrast adjustment.
- *
- * <element className="hover-elevate" />
- * <element className="active-elevate-2" />
- *
- * // Using the tailwind utility when a data attribute is "on"
- * <element className="toggle-elevate data-[state=on]:toggle-elevated" />
- * // Or manually controlling the toggle state
- * <element className="toggle-elevate toggle-elevated" />
- *
- * Elevation systems have to handle many states.
- * - not-hovered, vs. hovered vs. active  (three mutually exclusive states)
- * - toggled or not
- * - focused or not (this is not handled with these utilities)
- *
- * Even without handling focused or not, this is six possible combinations that
- * need to be distinguished from eachother visually.
+ * Modern elevation system - soft interactions
  */
 @layer utilities {
-
-  /* Hide ugly search cancel button in Chrome until we can style it properly */
+  /* Hide ugly search cancel button in Chrome */
   input[type="search"]::-webkit-search-cancel-button {
     @apply hidden;
   }
@@ -250,48 +216,36 @@
     pointer-events: none;
   }
 
-  /* .no-default-hover-elevate/no-default-active-elevate is an escape hatch so consumers of
-   * buttons/badges can remove the automatic brightness adjustment on interactions
-   * and program their own. */
   .no-default-hover-elevate {}
-
   .no-default-active-elevate {}
 
-
-  /**
-   * Toggleable backgrounds go behind the content. Hoverable/active goes on top.
-   * This way they can stack/compound. Both will overlap the parent's borders!
-   * So borders will be automatically adjusted both on toggle, and hover/active,
-   * and they will be compounded.
-   */
+  /* Modern toggle elevation with soft backgrounds */
   .toggle-elevate::before,
   .toggle-elevate-2::before {
     content: "";
     pointer-events: none;
     position: absolute;
     inset: 0px;
-    /*border-radius: inherit;   match rounded corners */
     border-radius: inherit;
     z-index: -1;
-    /* sits behind content but above backdrop */
   }
 
   .toggle-elevate.toggle-elevated::before {
     background-color: var(--elevate-2);
   }
 
-  /* If there's a 1px border, adjust the inset so that it covers that parent's border */
   .border.toggle-elevate::before {
     inset: -1px;
   }
 
-  /* Does not work on elements with overflow:hidden! */
+  /* Soft hover/active elevation */
   .hover-elevate:not(.no-default-hover-elevate),
   .active-elevate:not(.no-default-active-elevate),
   .hover-elevate-2:not(.no-default-hover-elevate),
   .active-elevate-2:not(.no-default-active-elevate) {
     position: relative;
     z-index: 0;
+    transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
   }
 
   .hover-elevate:not(.no-default-hover-elevate)::after,
@@ -302,10 +256,9 @@
     pointer-events: none;
     position: absolute;
     inset: 0px;
-    /*border-radius: inherit;   match rounded corners */
     border-radius: inherit;
     z-index: 999;
-    /* sits in front of content */
+    transition: background-color 0.2s ease-out;
   }
 
   .hover-elevate:hover:not(.no-default-hover-elevate)::after,
@@ -318,85 +271,110 @@
     background-color: var(--elevate-2);
   }
 
-  /* If there's a 1px border, adjust the inset so that it covers that parent's border */
+  /* Soft lift effect on hover */
+  .hover-elevate:hover:not(.no-default-hover-elevate) {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+  }
+
   .border.hover-elevate:not(.no-hover-interaction-elevate)::after,
   .border.active-elevate:not(.no-active-interaction-elevate)::after,
   .border.hover-elevate-2:not(.no-hover-interaction-elevate)::after,
-  .border.active-elevate-2:not(.no-active-interaction-elevate)::after,
-  .border.hover-elevate:not(.no-hover-interaction-elevate)::after {
+  .border.active-elevate-2:not(.no-active-interaction-elevate)::after {
     inset: -1px;
   }
 
-  /* BRUTAL OVERRIDES - Neo-Brutalist Financial Command Center */
-  .brutal-border {
-    @apply border-4 border-black;
+  /* MODERN FINTECH UTILITIES */
+  .modern-card {
+    @apply bg-card border border-card-border rounded-2xl shadow-sm hover-elevate transition-all duration-200;
   }
 
-  .brutal-shadow {
-    box-shadow: 8px 8px 0px 0px #000000;
+  .modern-shadow {
+    box-shadow: var(--shadow);
   }
 
-  .brutal-shadow-lg {
-    box-shadow: 12px 12px 0px 0px #000000;
+  .modern-shadow-lg {
+    box-shadow: var(--shadow-lg);
   }
 
-  .brutal-text {
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+  .modern-text {
+    font-weight: 500;
+    letter-spacing: -0.01em;
   }
 
-  .brutal-mono {
+  .modern-mono {
     font-family: var(--font-mono);
+    font-weight: 500;
   }
 
-  /* Force zero border radius everywhere */
-  * {
-    border-radius: 0 !important;
-  }
-
-  /* Brutal button pressed state */
-  .brutal-button:active {
-    transform: translate(4px, 4px);
-    box-shadow: 4px 4px 0px 0px #000000;
-  }
-
-  /* Dense data tables */
-  .brutal-table {
-    @apply font-mono text-sm;
-  }
-
-  .brutal-table th,
-  .brutal-table td {
-    @apply border-2 border-black px-2 py-1;
-  }
-
-  /* Status indicators */
+  /* Soft status indicators */
   .status-paid {
-    background-color: #00FF00;
-    color: #000000;
+    @apply bg-success text-success-foreground rounded-full px-3 py-1 text-xs font-medium;
   }
 
   .status-late {
-    background-color: #FF0000;
-    color: #FFFFFF;
+    @apply bg-destructive text-destructive-foreground rounded-full px-3 py-1 text-xs font-medium;
   }
 
   .status-pending {
-    background-color: #FFFF00;
-    color: #000000;
+    @apply bg-warning text-warning-foreground rounded-full px-3 py-1 text-xs font-medium;
   }
 
-  /* Chart colors */
+  .status-ready {
+    @apply bg-muted text-muted-foreground rounded-full px-3 py-1 text-xs font-medium;
+  }
+
+  .status-scheduled {
+    @apply bg-secondary text-secondary-foreground rounded-full px-3 py-1 text-xs font-medium;
+  }
+
+  .status-due {
+    @apply bg-destructive/20 text-destructive rounded-full px-3 py-1 text-xs font-medium;
+  }
+
+  /* Data visualization elements */
+  .data-block {
+    @apply modern-card p-6 space-y-2;
+  }
+
+  .metric-large {
+    @apply text-3xl font-bold text-foreground modern-mono tracking-tight;
+  }
+
+  .metric-small {
+    @apply text-lg font-semibold text-foreground modern-mono;
+  }
+
+  .trend-positive {
+    @apply text-success font-medium;
+  }
+
+  .trend-negative {
+    @apply text-destructive font-medium;
+  }
+
+  .trend-neutral {
+    @apply text-muted-foreground font-medium;
+  }
+
+  /* Chart styling */
   .chart-positive {
-    fill: #00FF00;
+    fill: hsl(var(--success));
   }
 
   .chart-negative {
-    fill: #FF0000;
+    fill: hsl(var(--destructive));
   }
 
   .chart-neutral {
-    fill: #C0C0C0;
+    fill: hsl(var(--muted-foreground));
+  }
+
+  .chart-primary {
+    fill: hsl(var(--primary));
+  }
+
+  .chart-secondary {
+    fill: hsl(var(--secondary));
   }
 }

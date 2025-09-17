@@ -1,6 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Home, Calendar, CreditCard, TrendingDown, TrendingUp, Clock, History, Calculator, RefreshCw } from "lucide-react";
 
 interface MortgageCardProps {
   outstandingBalance: number;
@@ -32,102 +33,153 @@ export function MortgageCard({
   };
 
   return (
-    <Card className="brutal-border brutal-shadow bg-white p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="brutal-text text-xl" data-testid="text-mortgage-title">
-          ANZ HOME MORTGAGE
-        </h2>
-        <div className="brutal-text text-sm bg-gray-100 px-3 py-1" data-testid="text-account-provider">
-          ACCOUNT: {accountProvider}
+    <Card className="modern-card p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="p-2 bg-primary/10 rounded-xl">
+            <Home className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-foreground" data-testid="text-mortgage-title">
+              Home Mortgage
+            </h2>
+            <div className="text-sm text-muted-foreground" data-testid="text-account-provider">
+              {accountProvider} Account
+            </div>
+          </div>
+        </div>
+        <div className={`flex items-center space-x-1 px-3 py-1 rounded-full text-xs font-medium ${
+          daysUntilDue <= 7 ? 'bg-destructive/20 text-destructive' : 'bg-success/20 text-success'
+        }`}>
+          <Clock className="w-3 h-3" />
+          <span>{daysUntilDue} days</span>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        <div className="brutal-border bg-gray-50 p-4">
-          <div className="text-sm text-gray-600 mb-1">OUTSTANDING BALANCE</div>
-          <div className="brutal-mono text-3xl font-black text-red-600" data-testid="text-outstanding-balance">
-            ${outstandingBalance.toLocaleString()}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card className="p-4 hover-elevate">
+          <div className="flex items-center justify-between mb-3">
+            <div className="space-y-1">
+              <h3 className="modern-text text-sm font-medium text-muted-foreground uppercase tracking-wide">Outstanding Balance</h3>
+              <div className="metric-large text-destructive" data-testid="text-outstanding-balance">
+                ${outstandingBalance.toLocaleString()}
+              </div>
+            </div>
+            <div className="p-2 bg-destructive/10 rounded-xl">
+              <TrendingDown className="w-4 h-4 text-destructive" />
+            </div>
           </div>
-          <div className="text-sm text-green-600 mt-1" data-testid="text-balance-change">
-            ▼ -$7,249 THIS MONTH
+          <div className="flex items-center space-x-2 text-success" data-testid="text-balance-change">
+            <TrendingDown className="w-3 h-3" />
+            <span className="text-sm font-medium">-$7,249 this month</span>
           </div>
-        </div>
+        </Card>
 
-        <div className="brutal-border bg-gray-50 p-4">
-          <div className="text-sm text-gray-600 mb-1">INTEREST RATE</div>
-          <div className="brutal-mono text-3xl font-black" data-testid="text-interest-rate">
-            {interestRate}% P.A.
+        <Card className="p-4 hover-elevate">
+          <div className="flex items-center justify-between mb-3">
+            <div className="space-y-1">
+              <h3 className="modern-text text-sm font-medium text-muted-foreground uppercase tracking-wide">Interest Rate</h3>
+              <div className="metric-large" data-testid="text-interest-rate">
+                {interestRate}% p.a.
+              </div>
+            </div>
+            <div className="p-2 bg-warning/10 rounded-xl">
+              <TrendingUp className="w-4 h-4 text-warning" />
+            </div>
           </div>
-          <div className="text-sm text-red-600 mt-1" data-testid="text-rate-change">
-            ▲ +0.25% YTD
+          <div className="flex items-center space-x-2 text-destructive" data-testid="text-rate-change">
+            <TrendingUp className="w-3 h-3" />
+            <span className="text-sm font-medium">+0.25% YTD</span>
           </div>
-        </div>
+        </Card>
       </div>
 
-      <div className="brutal-border bg-gray-50 p-4 mb-6">
-        <div className="flex justify-between items-center mb-3">
-          <div className="text-sm text-gray-600">MONTHLY PAYMENT</div>
-          <div className="brutal-mono text-2xl font-black" data-testid="text-monthly-payment">
+      <Card className="p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="modern-text text-sm font-medium text-muted-foreground uppercase tracking-wide">Monthly Payment</h3>
+          <div className="metric-small" data-testid="text-monthly-payment">
             ${monthlyPayment.toLocaleString()}
           </div>
         </div>
         
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span>├── PRINCIPAL: ${principalAmount.toLocaleString()}</span>
-            <span className="brutal-text">({principalPercentage.toFixed(1)}%)</span>
+        <div className="space-y-4">
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm text-foreground">Principal: ${principalAmount.toLocaleString()}</span>
+              <span className="text-sm font-medium text-success">({principalPercentage.toFixed(1)}%)</span>
+            </div>
+            <Progress value={principalPercentage} className="h-2" />
           </div>
-          <Progress value={principalPercentage} className="h-2" />
           
-          <div className="flex justify-between text-sm">
-            <span>└── INTEREST: ${interestAmount.toLocaleString()}</span>
-            <span className="brutal-text">({interestPercentage.toFixed(1)}%)</span>
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm text-foreground">Interest: ${interestAmount.toLocaleString()}</span>
+              <span className="text-sm font-medium text-muted-foreground">({interestPercentage.toFixed(1)}%)</span>
+            </div>
+            <Progress value={interestPercentage} className="h-2 bg-muted" />
           </div>
         </div>
-      </div>
+      </Card>
 
-      <div className="brutal-border bg-red-50 p-4 mb-6">
-        <div className="text-sm text-gray-600 mb-1">NEXT PAYMENT DUE</div>
-        <div className="brutal-mono text-lg font-black" data-testid="text-next-payment-date">
-          {nextPaymentDate}
+      <Card className={`p-4 ${daysUntilDue <= 7 ? 'bg-destructive/5 border-destructive/20' : 'bg-card'}`}>
+        <div className="flex items-center space-x-3">
+          <div className={`p-2 rounded-xl ${
+            daysUntilDue <= 7 ? 'bg-destructive/10' : 'bg-primary/10'
+          }`}>
+            <Calendar className={`w-4 h-4 ${
+              daysUntilDue <= 7 ? 'text-destructive' : 'text-primary'
+            }`} />
+          </div>
+          <div className="flex-1">
+            <div className="text-sm font-medium text-muted-foreground mb-1">Next Payment Due</div>
+            <div className="font-semibold text-foreground" data-testid="text-next-payment-date">
+              {nextPaymentDate}
+            </div>
+          </div>
+          <div className={`text-right ${
+            daysUntilDue <= 7 ? 'text-destructive' : 'text-muted-foreground'
+          }`} data-testid="text-days-until-due">
+            <div className="text-sm font-medium">{daysUntilDue} days</div>
+            <div className="text-xs">14h 32m</div>
+          </div>
         </div>
-        <div className="brutal-text text-sm text-red-600" data-testid="text-days-until-due">
-          ⏱️ {daysUntilDue} DAYS 14 HOURS 32 MINUTES
-        </div>
-      </div>
+      </Card>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="flex flex-wrap gap-3">
         <Button
-          variant="default"
-          className="brutal-border brutal-text bg-black text-white hover:bg-white hover:text-black"
+          className="flex items-center space-x-2 bg-primary text-primary-foreground hover-elevate"
           onClick={() => handleAction('MAKE_PAYMENT')}
           data-testid="button-make-payment"
         >
-          MAKE PAYMENT
+          <CreditCard className="w-4 h-4" />
+          <span>Make Payment</span>
         </Button>
         <Button
           variant="outline"
-          className="brutal-border brutal-text"
+          className="hover-elevate"
           onClick={() => handleAction('PAYMENT_HISTORY')}
           data-testid="button-payment-history"
         >
-          HISTORY
+          <History className="w-4 h-4 mr-2" />
+          History
         </Button>
         <Button
           variant="outline"
-          className="brutal-border brutal-text"
+          className="hover-elevate"
           onClick={() => handleAction('AMORTIZATION')}
           data-testid="button-amortization"
         >
-          SCHEDULE
+          <Calculator className="w-4 h-4 mr-2" />
+          Schedule
         </Button>
         <Button
           variant="outline"
-          className="brutal-border brutal-text"
+          className="hover-elevate"
           onClick={() => handleAction('REFINANCE_CALC')}
           data-testid="button-refinance-calc"
         >
-          REFINANCE
+          <RefreshCw className="w-4 h-4 mr-2" />
+          Refinance
         </Button>
       </div>
     </Card>

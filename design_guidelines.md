@@ -1,91 +1,104 @@
-# Neo-Brutalist Financial Command Center - Design Guidelines
+# Modern Fintech Financial Command Center - Design Guidelines
 
-## Design Approach: Reference-Based Neo-Brutalist System
-**Justification**: This is a specialized aesthetic requirement calling for Neo-Brutalist design principles - harsh, uncompromising, and functionally aggressive visual language that matches the "brutally honest" financial management philosophy.
+## Design Approach: Reference-Based Fintech/Crypto System
+**Justification**: Modern fintech aesthetic requirement demanding clean, futuristic visual language with crypto dashboard influences like Coinbase Pro, Robinhood, and modern SaaS platforms prioritizing data visualization and minimalist interfaces.
 
 ## Core Design Elements
 
 ### A. Color Palette
-**Dark Mode Primary** (Default):
-- Background: 0 0% 8% (deep charcoal)
-- Surface: 0 0% 12% (elevated dark surface)
-- Primary: 0 0% 95% (harsh white for text/borders)
-- Danger: 0 84% 60% (brutal red for negative values)
-- Success: 142 76% 36% (muted green for positive values)
-- Warning: 45 93% 47% (amber for alerts)
+**Primary Colors**:
+- Soft Green: 121 64% 77% (primary brand color)
+- Lavender Purple: 258 73% 85% (secondary accent)
+- Neutrals: 150 10% 97% (background), 150 5% 92% (surface)
+- Dark Text: 0 0% 15% (primary text)
+- Light Text: 0 0% 45% (secondary text)
 
-**Light Mode** (Optional toggle):
-- Background: 0 0% 98% (stark white)
-- Surface: 0 0% 94% (subtle gray)
-- Primary: 0 0% 5% (harsh black)
-- Same accent colors maintained
+**Status Colors**:
+- Success: 142 69% 58% (profit indicators)
+- Danger: 0 84% 60% (loss indicators) 
+- Warning: 45 93% 47% (alerts)
 
 ### B. Typography
-- **Primary**: Inter (Google Fonts) - geometric, brutalist-friendly
-- **Monospace**: JetBrains Mono for financial data/tables
-- **Sizes**: Aggressive hierarchy - 48px headlines, 16px body, 14px data
-- **Weight**: Bold (700) for emphasis, Regular (400) for content
+- **Primary**: Inter (Google Fonts) - clean, modern fintech standard
+- **Monospace**: JetBrains Mono for financial data
+- **Hierarchy**: 32px headers, 18px body, 14px data labels
+- **Weight**: Medium (500) for emphasis, Regular (400) for content
 
 ### C. Layout System
-**Tailwind Spacing Primitives**: 2, 4, 6, 8, 12, 16, 24 units
-- Harsh geometric spacing with intentional asymmetry
-- Dense information layouts with minimal padding
-- Sharp rectangular containers with no rounded corners
+**Tailwind Spacing**: 2, 4, 6, 8, 12, 16, 20, 24 units
+- Card-based grid layouts with consistent spacing
+- Generous padding for breathing room
+- Rounded corners (12px-16px) for soft, pill-like containers
 
 ### D. Component Library
 
 **Core Elements**:
-- **Borders**: Thick 3-4px black borders on all containers
-- **Shadows**: Harsh drop shadows (8px offset, no blur) in black
-- **Cards**: Rectangular with thick borders, no border-radius
-- **Tables**: Dense data tables with alternating row colors
-- **Charts**: Geometric bar charts and line graphs with sharp angles
+- **Cards**: Soft shadows, 16px border-radius, subtle borders
+- **Buttons**: Pill-shaped (full rounded), gradient backgrounds
+- **Data Blocks**: Elevated cards with integrated charts/meters
+- **Containers**: Soft geometric shapes with subtle depth
 
 **Navigation**:
-- Brutal sidebar with thick separators
-- Sharp rectangular navigation items
-- High contrast active states
+- Clean sidebar with rounded nav items
+- Soft hover states with color transitions
+- Minimal iconography with labels
+
+**Data Visualization**:
+- **Charts**: Smooth line charts, donut charts, area graphs
+- **Meters**: Circular progress indicators with gradient fills
+- **Cards**: Metric cards with large numbers and trend indicators
+- **Tables**: Clean rows with soft alternating backgrounds
 
 **Forms**:
-- Input fields with thick borders and harsh focus states
-- Brutal validation messages in red
-- "Kill switches" for subscriptions with danger styling
+- Rounded input fields with soft focus states
+- Floating labels and subtle validation
+- Soft green success states, gentle error styling
 
-**Data Displays**:
-- Dense financial tables with monospace numbers
-- Harsh color coding for positive/negative values
-- Geometric progress bars for collection rates
-- Sharp-edged status indicators
-
-**Overlays**:
-- Modal dialogs with thick black borders
-- No backdrop blur - harsh overlay states
-- Sharp-edged tooltips for data points
+**Interactive Elements**:
+- Soft shadows that lift on hover
+- Smooth color transitions
+- Gradient button backgrounds
+- Subtle scale transforms for cards
 
 ### E. Animations
-**Minimal and Harsh**:
-- Sharp state transitions (100ms duration)
-- No easing curves - linear transitions only
-- Color changes for status updates
-- No decorative animations - function-only
+**Smooth and Minimal**:
+- 200-300ms transitions with ease-out curves
+- Gentle hover lift effects on cards
+- Smooth data chart animations
+- Color transitions for state changes
 
-## Neo-Brutalist Specific Guidelines
+## Fintech-Specific Guidelines
 
-**Visual Hierarchy**: Use size, weight, and harsh contrast rather than subtle spacing
-**Asymmetry**: Intentionally offset elements for visual tension
-**Information Density**: Pack data efficiently - no wasted whitespace
-**Honest Feedback**: Harsh red for overdue payments, unforgiving validation messages
-**Geometric Shapes**: Rectangle-only design language, no organic curves
-**High Contrast**: Black/white with strategic color accents only
+**Visual Hierarchy**: Use card elevation, soft colors, and generous spacing
+**Data Focus**: Charts and visual metrics take priority over text
+**Clean Geometry**: Rounded rectangles, circles, soft pill shapes
+**Subtle Depth**: Layered cards with soft shadows for information hierarchy
+**Breathing Room**: Generous whitespace between data blocks
+**Progressive Disclosure**: Expandable cards and drill-down interactions
+
+## Layout Structure
+**Dashboard Grid**: 
+- Primary metrics in hero cards (3-4 large data blocks)
+- Secondary data in smaller cards below
+- Chart visualizations in dedicated sections
+- Sidebar navigation with account summary
+
+**Card Organization**:
+- Portfolio overview cards with integrated mini-charts
+- Transaction history in clean table cards
+- Goal tracking with progress meters
+- Market data in real-time updating cards
 
 ## Images
-This financial command center should be primarily data-driven with minimal imagery:
-- **No Hero Image**: This is a utility-first dashboard
-- **Icon Usage**: Material Icons for harsh geometric symbols
-- **Data Visualization**: Custom geometric charts and graphs
-- **Status Indicators**: Sharp-edged colored rectangles for payment status
+**Minimal Imagery Approach**:
+- **No Large Hero**: Dashboard prioritizes data visualization
+- **Icons**: Heroicons for clean, consistent symbols
+- **Charts/Graphs**: Primary visual elements are data visualizations
+- **Avatars**: Small circular profile images in header
+- **Background**: Subtle geometric patterns or gradients in empty states
 
 ## Responsive Behavior
-- Mobile: Stack brutal cards vertically, maintain thick borders
-- Desktop: Multi-column dense layouts with harsh geometric alignment
-- Maintain Neo-Brutalist aesthetic integrity across all breakpoints
+- Mobile: Single-column card stack with maintained rounded corners
+- Tablet: Two-column grid with responsive chart sizing
+- Desktop: Multi-column dashboard grid with expanded data visualization
+- Maintain soft aesthetic and card-based structure across breakpoints

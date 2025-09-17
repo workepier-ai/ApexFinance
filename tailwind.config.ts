@@ -6,11 +6,14 @@ export default {
   theme: {
     extend: {
       borderRadius: {
-        lg: "0rem", /* BRUTAL - NO CURVES */
-        md: "0rem", /* BRUTAL - NO CURVES */
-        sm: "0rem", /* BRUTAL - NO CURVES */
+        lg: "1rem", /* Modern rounded corners */
+        md: "0.75rem", 
+        sm: "0.5rem",
         none: "0rem",
-        DEFAULT: "0rem",
+        DEFAULT: "0.5rem",
+        xl: "1.5rem",
+        "2xl": "2rem",
+        full: "9999px",
       },
       colors: {
         // Flat / base colors (regular buttons)
@@ -52,6 +55,14 @@ export default {
           DEFAULT: "hsl(var(--destructive) / <alpha-value>)",
           foreground: "hsl(var(--destructive-foreground) / <alpha-value>)",
           border: "var(--destructive-border)",
+        },
+        success: {
+          DEFAULT: "hsl(var(--success) / <alpha-value>)",
+          foreground: "hsl(var(--success-foreground) / <alpha-value>)",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning) / <alpha-value>)",
+          foreground: "hsl(var(--warning-foreground) / <alpha-value>)",
         },
         ring: "hsl(var(--ring) / <alpha-value>)",
         chart: {

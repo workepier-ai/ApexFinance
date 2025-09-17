@@ -3,6 +3,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Plus, RefreshCw, DollarSign } from "lucide-react";
 
 export function TransactionEntry() {
   const [amount, setAmount] = useState('');
@@ -19,92 +21,101 @@ export function TransactionEntry() {
     setType('');
   };
 
-  const handleDestroy = () => {
-    console.log('Transaction form destroyed');
+  const handleReset = () => {
+    console.log('Transaction form reset');
     setAmount('');
     setDescription('');
     setCategory('');
     setType('');
   };
 
+  const isFormValid = amount && description && category && type;
+
   return (
-    <Card className="brutal-border brutal-shadow bg-white p-6">
-      <h2 className="brutal-text text-xl mb-6" data-testid="text-transaction-entry-title">
-        ADD TRANSACTION
-      </h2>
+    <Card className="modern-card p-6">
+      <div className="flex items-center space-x-3 mb-6">
+        <div className="p-2 bg-secondary/10 rounded-xl">
+          <DollarSign className="w-5 h-5 text-secondary" />
+        </div>
+        <h2 className="text-lg font-semibold text-foreground" data-testid="text-transaction-entry-title">
+          Add Transaction
+        </h2>
+      </div>
       
       <div className="space-y-4">
-        <div>
-          <label className="brutal-text text-sm block mb-2">AMOUNT:</label>
+        <div className="space-y-2">
+          <Label htmlFor="amount" className="text-sm font-medium text-foreground">Amount</Label>
           <Input
+            id="amount"
             type="number"
             placeholder="0.00"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            className="brutal-border brutal-mono text-lg font-black"
+            className="text-lg font-semibold"
             data-testid="input-transaction-amount"
           />
         </div>
 
-        <div>
-          <label className="brutal-text text-sm block mb-2">DESCRIPTION:</label>
+        <div className="space-y-2">
+          <Label htmlFor="description" className="text-sm font-medium text-foreground">Description</Label>
           <Input
-            placeholder="TRANSACTION DESCRIPTION"
+            id="description"
+            placeholder="Transaction description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="brutal-border brutal-text"
             data-testid="input-transaction-description"
           />
         </div>
 
-        <div>
-          <label className="brutal-text text-sm block mb-2">TYPE:</label>
+        <div className="space-y-2">
+          <Label htmlFor="type" className="text-sm font-medium text-foreground">Type</Label>
           <Select value={type} onValueChange={setType}>
-            <SelectTrigger className="brutal-border brutal-text" data-testid="select-transaction-type">
-              <SelectValue placeholder="SELECT TYPE" />
+            <SelectTrigger data-testid="select-transaction-type">
+              <SelectValue placeholder="Select type" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="INCOME">INCOME</SelectItem>
-              <SelectItem value="EXPENSE">EXPENSE</SelectItem>
-              <SelectItem value="RENT">RENT RECEIVED</SelectItem>
-              <SelectItem value="BILL">BILL PAYMENT</SelectItem>
+              <SelectItem value="INCOME">Income</SelectItem>
+              <SelectItem value="EXPENSE">Expense</SelectItem>
+              <SelectItem value="RENT">Rent Received</SelectItem>
+              <SelectItem value="BILL">Bill Payment</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
-        <div>
-          <label className="brutal-text text-sm block mb-2">CATEGORY:</label>
+        <div className="space-y-2">
+          <Label htmlFor="category" className="text-sm font-medium text-foreground">Category</Label>
           <Select value={category} onValueChange={setCategory}>
-            <SelectTrigger className="brutal-border brutal-text" data-testid="select-transaction-category">
-              <SelectValue placeholder="SELECT CATEGORY" />
+            <SelectTrigger data-testid="select-transaction-category">
+              <SelectValue placeholder="Select category" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="MORTGAGE">MORTGAGE</SelectItem>
-              <SelectItem value="UTILITIES">UTILITIES</SelectItem>
-              <SelectItem value="GROCERIES">GROCERIES</SelectItem>
-              <SelectItem value="TRANSPORT">TRANSPORT</SelectItem>
-              <SelectItem value="ENTERTAINMENT">ENTERTAINMENT</SelectItem>
-              <SelectItem value="PROPERTY">PROPERTY</SelectItem>
+              <SelectItem value="MORTGAGE">Mortgage</SelectItem>
+              <SelectItem value="UTILITIES">Utilities</SelectItem>
+              <SelectItem value="GROCERIES">Groceries</SelectItem>
+              <SelectItem value="TRANSPORT">Transport</SelectItem>
+              <SelectItem value="ENTERTAINMENT">Entertainment</SelectItem>
+              <SelectItem value="PROPERTY">Property</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
-        <div className="flex space-x-4 pt-4">
+        <div className="flex space-x-3 pt-4">
           <Button
-            variant="default"
-            className="brutal-border brutal-shadow brutal-text bg-black text-white hover:bg-white hover:text-black brutal-button flex-1"
             onClick={handleSubmit}
+            disabled={!isFormValid}
+            className="flex items-center space-x-2 bg-primary text-primary-foreground hover-elevate flex-1"
             data-testid="button-submit-transaction"
           >
-            SUBMIT
+            <Plus className="w-4 h-4" />
+            <span>Add Transaction</span>
           </Button>
           <Button
-            variant="destructive"
-            className="brutal-border brutal-shadow brutal-text bg-red-600 text-white hover:bg-white hover:text-red-600 brutal-button flex-1"
-            onClick={handleDestroy}
-            data-testid="button-destroy-transaction"
+            variant="outline"
+            onClick={handleReset}
+            className="hover-elevate"
+            data-testid="button-reset-transaction"
           >
-            DESTROY
+            <RefreshCw className="w-4 h-4" />
           </Button>
         </div>
       </div>

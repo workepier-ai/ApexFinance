@@ -1,6 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Plus, Edit3, Trash2, Clock, CheckCircle, AlertCircle } from "lucide-react";
 
 interface Bill {
   id: string;
@@ -24,12 +24,12 @@ export function BillsTable({ bills, monthlyTotal, quarterlyAvg, annualTotal }: B
   
   const getStatusDisplay = (status: string) => {
     switch (status) {
-      case 'PAID': return { text: '✅ PAID', class: 'status-paid' };
-      case 'DUE': return { text: '🔔 3 DAYS', class: 'status-late' };
-      case 'SCHEDULED': return { text: '⏳ SCHEDULED', class: 'status-pending' };
-      case 'OVERDUE': return { text: '⚠️ OVERDUE', class: 'status-late' };
-      case 'READY': return { text: '✅ READY', class: 'status-paid' };
-      default: return { text: status, class: 'bg-gray-200' };
+      case 'PAID': return { text: 'Paid', class: 'status-paid', icon: CheckCircle };
+      case 'DUE': return { text: '3 days', class: 'status-due', icon: AlertCircle };
+      case 'SCHEDULED': return { text: 'Scheduled', class: 'status-scheduled', icon: Clock };
+      case 'OVERDUE': return { text: 'Overdue', class: 'status-late', icon: AlertCircle };
+      case 'READY': return { text: 'Ready', class: 'status-ready', icon: CheckCircle };
+      default: return { text: status, class: 'status-ready', icon: Clock };
     }
   };
 
@@ -42,91 +42,106 @@ export function BillsTable({ bills, monthlyTotal, quarterlyAvg, annualTotal }: B
   };
 
   return (
-    <Card className="brutal-border brutal-shadow bg-white p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="brutal-text text-2xl" data-testid="text-bills-table-title">
-          ACTIVE BILLS
-        </h2>
-        <Button
-          variant="default"
-          className="brutal-border brutal-text bg-black text-white hover:bg-white hover:text-black"
-          onClick={handleAddBill}
-          data-testid="button-add-bill"
-        >
-          + ADD BILL
-        </Button>
+    <div className="space-y-6">
+      {/* Overview Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="data-block">
+          <div className="space-y-1">
+            <h3 className="modern-text text-sm font-medium text-muted-foreground uppercase tracking-wide">Monthly Total</h3>
+            <div className="metric-large">${monthlyTotal.toLocaleString()}</div>
+          </div>
+        </Card>
+        <Card className="data-block">
+          <div className="space-y-1">
+            <h3 className="modern-text text-sm font-medium text-muted-foreground uppercase tracking-wide">Quarterly Average</h3>
+            <div className="metric-large">${quarterlyAvg.toLocaleString()}</div>
+          </div>
+        </Card>
+        <Card className="data-block">
+          <div className="space-y-1">
+            <h3 className="modern-text text-sm font-medium text-muted-foreground uppercase tracking-wide">Annual Total</h3>
+            <div className="metric-large">${annualTotal.toLocaleString()}</div>
+          </div>
+        </Card>
       </div>
 
-      <div className="brutal-table overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow className="border-b-4 border-black">
-              <TableHead className="brutal-text font-black">BILL NAME</TableHead>
-              <TableHead className="brutal-text font-black">AMOUNT</TableHead>
-              <TableHead className="brutal-text font-black">FREQUENCY</TableHead>
-              <TableHead className="brutal-text font-black">NEXT DUE</TableHead>
-              <TableHead className="brutal-text font-black">STATUS</TableHead>
-              <TableHead className="brutal-text font-black">ACTIONS</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {bills.map((bill) => {
-              const statusDisplay = getStatusDisplay(bill.status);
-              return (
-                <TableRow key={bill.id} className="border-b-2 border-black">
-                  <TableCell className="brutal-mono font-bold" data-testid={`text-bill-name-${bill.id}`}>
-                    {bill.icon} {bill.name}
-                  </TableCell>
-                  <TableCell className="brutal-mono font-black" data-testid={`text-bill-amount-${bill.id}`}>
-                    {bill.isVariable ? '~' : ''}${bill.amount.toFixed(2)}
-                  </TableCell>
-                  <TableCell className="brutal-text" data-testid={`text-bill-frequency-${bill.id}`}>
-                    {bill.frequency}
-                  </TableCell>
-                  <TableCell className="brutal-mono" data-testid={`text-bill-due-${bill.id}`}>
-                    {bill.nextDue}
-                  </TableCell>
-                  <TableCell data-testid={`status-bill-${bill.id}`}>
-                    <span className={`px-2 py-1 brutal-text text-xs ${statusDisplay.class}`}>
-                      {statusDisplay.text}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex space-x-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="brutal-border brutal-text text-xs"
-                        onClick={() => handleBillAction(bill.id, 'EDIT')}
-                        data-testid={`button-edit-bill-${bill.id}`}
-                      >
-                        EDIT
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="brutal-border brutal-text text-xs"
-                        onClick={() => handleBillAction(bill.id, 'PAY')}
-                        data-testid={`button-pay-bill-${bill.id}`}
-                      >
-                        PAY
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </div>
-
-      <div className="brutal-border bg-gray-100 p-4 mt-6">
-        <div className="brutal-mono text-lg font-black flex justify-between" data-testid="text-bills-summary">
-          <span>MONTHLY TOTAL: ${monthlyTotal.toLocaleString()}</span>
-          <span>QUARTERLY AVG: ${quarterlyAvg}</span>
-          <span>ANNUAL: ${annualTotal.toLocaleString()}</span>
+      {/* Bills Management */}
+      <Card className="modern-card p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-lg font-semibold text-foreground" data-testid="text-bills-table-title">
+            Active Bills
+          </h2>
+          <Button
+            className="flex items-center space-x-2 bg-primary text-primary-foreground hover-elevate"
+            onClick={handleAddBill}
+            data-testid="button-add-bill"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Bill</span>
+          </Button>
         </div>
-      </div>
-    </Card>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {bills.map((bill) => {
+            const statusDisplay = getStatusDisplay(bill.status);
+            const StatusIcon = statusDisplay.icon;
+            
+            return (
+              <Card key={bill.id} className="hover-elevate p-4 group">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-lg">{bill.icon}</span>
+                    <div>
+                      <h3 className="font-medium text-foreground" data-testid={`text-bill-name-${bill.id}`}>
+                        {bill.name}
+                      </h3>
+                      <div className="text-xs text-muted-foreground" data-testid={`text-bill-frequency-${bill.id}`}>
+                        {bill.frequency}
+                      </div>
+                    </div>
+                  </div>
+                  <div className={statusDisplay.class} data-testid={`status-bill-${bill.id}`}>
+                    <StatusIcon className="w-3 h-3" />
+                    <span className="ml-1">{statusDisplay.text}</span>
+                  </div>
+                </div>
+                
+                <div className="space-y-2 mb-4">
+                  <div className="metric-small" data-testid={`text-bill-amount-${bill.id}`}>
+                    {bill.isVariable ? '~' : ''}${bill.amount.toFixed(2)}
+                  </div>
+                  <div className="text-sm text-muted-foreground" data-testid={`text-bill-due-${bill.id}`}>
+                    Due {bill.nextDue}
+                  </div>
+                </div>
+
+                <div className="flex space-x-2 opacity-60 group-hover:opacity-100 transition-opacity">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => handleBillAction(bill.id, 'EDIT')}
+                    data-testid={`button-edit-bill-${bill.id}`}
+                  >
+                    <Edit3 className="w-3 h-3 mr-1" />
+                    Edit
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="flex-1 text-destructive hover:text-destructive"
+                    onClick={() => handleBillAction(bill.id, 'DELETE')}
+                    data-testid={`button-delete-bill-${bill.id}`}
+                  >
+                    <Trash2 className="w-3 h-3 mr-1" />
+                    Delete
+                  </Button>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      </Card>
+    </div>
   );
 }
