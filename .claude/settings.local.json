@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir)",
+      "Bash(dir:*)",
+      "Bash(npm install)",
+      "Bash(npm run dev:*)",
+      "Bash(set NODE_ENV=development)",
+      "Bash(tsx:*)",
+      "Bash(npx tsx:*)",
+      "Bash(set PORT=3000)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
