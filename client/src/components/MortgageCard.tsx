@@ -1,7 +1,19 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Home, Calendar, CreditCard, TrendingDown, TrendingUp, Clock, History, Calculator, RefreshCw } from "lucide-react";
+import { Home, Calendar, CreditCard, TrendingDown, TrendingUp, Clock, History, Calculator, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
+import { MortgagePaymentHistory } from "./MortgagePaymentHistory";
+import { useState } from "react";
+
+interface PaymentRecord {
+  id: string;
+  date: string;
+  amount: number;
+  principal: number;
+  interest: number;
+  balance: number;
+  status: 'PAID' | 'SCHEDULED' | 'LATE';
+}
 
 interface MortgageCardProps {
   outstandingBalance: number;
@@ -12,6 +24,9 @@ interface MortgageCardProps {
   nextPaymentDate: string;
   daysUntilDue: number;
   accountProvider: string;
+  originalBalance?: number;
+  paymentHistory?: PaymentRecord[];
+  showHistory?: boolean;
 }
 
 export function MortgageCard({
@@ -22,14 +37,22 @@ export function MortgageCard({
   interestAmount,
   nextPaymentDate,
   daysUntilDue,
-  accountProvider
+  accountProvider,
+  originalBalance = 500000,
+  paymentHistory = [],
+  showHistory = true
 }: MortgageCardProps) {
-  
+  const [showPaymentHistory, setShowPaymentHistory] = useState(false);
+
   const principalPercentage = (principalAmount / monthlyPayment) * 100;
   const interestPercentage = (interestAmount / monthlyPayment) * 100;
 
   const handleAction = (action: string) => {
-    console.log(`Mortgage ${action} clicked`);
+    if (action === 'PAYMENT_HISTORY') {
+      setShowPaymentHistory(!showPaymentHistory);
+    } else {
+      console.log(`Mortgage ${action} clicked`);
+    }
   };
 
   return (
@@ -160,8 +183,17 @@ export function MortgageCard({
           onClick={() => handleAction('PAYMENT_HISTORY')}
           data-testid="button-payment-history"
         >
-          <History className="w-4 h-4 mr-2" />
-          History
+          {showPaymentHistory ? (
+            <>
+              <ChevronUp className="w-4 h-4 mr-2" />
+              Hide History
+            </>
+          ) : (
+            <>
+              <History className="w-4 h-4 mr-2" />
+              History
+            </>
+          )}
         </Button>
         <Button
           variant="outline"
@@ -182,6 +214,17 @@ export function MortgageCard({
           Refinance
         </Button>
       </div>
+
+      {/* Payment History Integration */}
+      {showPaymentHistory && showHistory && (
+        <div className="mt-6">
+          <MortgagePaymentHistory
+            payments={paymentHistory}
+            currentBalance={outstandingBalance}
+            originalBalance={originalBalance}
+          />
+        </div>
+      )}
     </Card>
   );
 }

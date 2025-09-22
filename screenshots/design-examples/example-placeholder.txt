@@ -1,0 +1,11 @@
+This is a placeholder file to test the screenshot viewing workflow.
+
+To test:
+1. Save your dashboard screenshot as: screenshots/design-examples/your-image.png
+2. Tell Claude: "Please look at screenshots/design-examples/your-image.png"
+3. Claude will be able to view and analyze the image to help with implementation
+
+Example file paths to use:
+- screenshots/design-examples/dashboard-mockup.png
+- screenshots/current-progress/homepage-v1.png
+- screenshots/wireframes/layout-sketch.jpg
