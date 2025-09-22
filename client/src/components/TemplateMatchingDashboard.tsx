@@ -2,8 +2,8 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { NavigationTabs } from "./NavigationTabs";
-import { MortgageCard } from "./MortgageCard";
-import { BillsTable } from "./BillsTable";
+import { EnhancedMortgageCard } from "./EnhancedMortgageCard";
+import { EnhancedBillsManagementHub } from "./EnhancedBillsManagementHub";
 import { Settings, Plus } from "lucide-react";
 
 export function TemplateMatchingDashboard() {
@@ -248,9 +248,9 @@ export function TemplateMatchingDashboard() {
 
             {/* Two Column Layout - Mortgage & Bills */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-              {/* Left Column - Mortgage */}
-              <div className="space-y-6">
-                <MortgageCard
+              {/* Left Column - Enhanced Mortgage */}
+              <div>
+                <EnhancedMortgageCard
                   outstandingBalance={487234}
                   interestRate={6.21}
                   monthlyPayment={9000}
@@ -260,93 +260,12 @@ export function TemplateMatchingDashboard() {
                   daysUntilDue={22}
                   accountProvider="BOQ"
                   originalBalance={500000}
-                  paymentHistory={mockPaymentHistory}
-                  showHistory={false}
                 />
-
-                {/* Integrated Payment History */}
-                <Card className="p-6 bg-white/70 backdrop-blur-sm border-blue-200">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      Mortgage Payment History
-                    </h3>
-                    <Button variant="outline" size="sm">
-                      Export CSV
-                    </Button>
-                  </div>
-
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-gray-200">
-                          <th className="text-left py-2 text-gray-600">Date</th>
-                          <th className="text-right py-2 text-gray-600">Amount</th>
-                          <th className="text-right py-2 text-gray-600">Principal</th>
-                          <th className="text-right py-2 text-gray-600">Interest</th>
-                          <th className="text-right py-2 text-gray-600">Balance</th>
-                        </tr>
-                      </thead>
-                      <tbody className="space-y-2">
-                        {mockPaymentHistory.map((payment) => (
-                          <tr key={payment.id} className="border-b border-gray-100">
-                            <td className="py-3 text-gray-900">{payment.date}</td>
-                            <td className="py-3 text-right font-medium">${payment.amount.toLocaleString()}</td>
-                            <td className="py-3 text-right text-green-600">${payment.principal.toLocaleString()}</td>
-                            <td className="py-3 text-right text-gray-600">${payment.interest.toLocaleString()}</td>
-                            <td className="py-3 text-right font-medium">${payment.balance.toLocaleString()}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </Card>
               </div>
 
-              {/* Right Column - Bills Management Hub */}
-              <div className="space-y-6">
-                <Card className="p-6 bg-white/70 backdrop-blur-sm border-green-200">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      Bills Management Hub
-                    </h3>
-                    <span className="text-sm text-green-600 bg-green-100 px-2 py-1 rounded-full">
-                      On Track
-                    </span>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="p-4 bg-green-50 rounded-lg">
-                      <h4 className="font-medium text-gray-900 mb-2">Bills Analytics (excluding mortgage)</h4>
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <span className="text-gray-600">Last Month:</span>
-                          <span className="ml-2 text-red-600">+$394.53</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-600">3-Mo Avg:</span>
-                          <span className="ml-2 text-green-600">$902</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="p-4 bg-blue-50 rounded-lg">
-                      <div className="flex justify-between items-center mb-2">
-                        <h4 className="font-medium text-gray-900">This Month</h4>
-                        <span className="text-sm text-gray-600">Fixed vs Variable</span>
-                      </div>
-                      <div className="text-2xl font-bold text-blue-600 mb-1">$481.97</div>
-                      <div className="text-sm text-gray-600">87% / 13%</div>
-                    </div>
-                  </div>
-                </Card>
-
-                {/* Enhanced Bills Table */}
-                <BillsTable
-                  bills={mockBills}
-                  monthlyTotal={10234}
-                  quarterlyAvg={323}
-                  annualTotal={126789}
-                />
+              {/* Right Column - Enhanced Bills Management Hub */}
+              <div>
+                <EnhancedBillsManagementHub />
               </div>
             </div>
           </div>
@@ -354,32 +273,23 @@ export function TemplateMatchingDashboard() {
 
         {activeTab === 'mortgage' && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-              <MortgageCard
-                outstandingBalance={487234}
-                interestRate={6.21}
-                monthlyPayment={9000}
-                principalAmount={6453}
-                interestAmount={2547}
-                nextPaymentDate="OCTOBER 8, 2025"
-                daysUntilDue={22}
-                accountProvider="BOQ"
-                originalBalance={500000}
-                paymentHistory={mockPaymentHistory}
-                showHistory={true}
-              />
-            </div>
+            <EnhancedMortgageCard
+              outstandingBalance={487234}
+              interestRate={6.21}
+              monthlyPayment={9000}
+              principalAmount={6453}
+              interestAmount={2547}
+              nextPaymentDate="OCTOBER 8, 2025"
+              daysUntilDue={22}
+              accountProvider="BOQ"
+              originalBalance={500000}
+            />
           </div>
         )}
 
         {activeTab === 'bills' && (
           <div className="space-y-6">
-            <BillsTable
-              bills={mockBills}
-              monthlyTotal={10234}
-              quarterlyAvg={323}
-              annualTotal={126789}
-            />
+            <EnhancedBillsManagementHub />
           </div>
         )}
 
