@@ -5,6 +5,7 @@ import { NavigationTabs } from "./NavigationTabs";
 import { UnifiedMortgageSection } from "./UnifiedMortgageSection";
 import { EnhancedBillsManagementHub } from "./EnhancedBillsManagementHub";
 import { AutoTagDashboard } from "./AutoTagDashboard";
+import { PropertyManagementDashboard } from "./PropertyManagementDashboard";
 import { Settings, Plus } from "lucide-react";
 
 export function TemplateMatchingDashboard() {
@@ -297,6 +298,12 @@ export function TemplateMatchingDashboard() {
         {activeTab === 'auto-tag' && (
           <div className="space-y-6">
             <AutoTagDashboard />
+          </div>
+        )}
+
+        {activeTab === 'property' && (
+          <div className="space-y-6">
+            <PropertyManagementDashboard />
           </div>
         )}
 

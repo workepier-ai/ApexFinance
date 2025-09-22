@@ -52,6 +52,12 @@ export function NavigationTabs({ activeTab, onTabChange }: NavigationTabsProps) 
       label: 'Auto-tag',
       icon: Tags,
       description: 'Automatic transaction categorization'
+    },
+    {
+      id: 'property',
+      label: 'Property',
+      icon: Home,
+      description: 'Property management dashboard'
     }
   ];
 
