@@ -5,12 +5,14 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { EnhancedFinancialDashboard } from "@/components/EnhancedFinancialDashboard";
 import { FinancialDashboard } from "@/components/FinancialDashboard";
+import { TemplateMatchingDashboard } from "@/components/TemplateMatchingDashboard";
 import NotFound from "@/pages/not-found";
 
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={EnhancedFinancialDashboard} />
+      <Route path="/" component={TemplateMatchingDashboard} />
+      <Route path="/enhanced" component={EnhancedFinancialDashboard} />
       <Route path="/original" component={FinancialDashboard} />
       {/* Fallback to 404 */}
       <Route component={NotFound} />
