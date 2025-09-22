@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { NavigationTabs } from "./NavigationTabs";
-import { EnhancedMortgageCard } from "./EnhancedMortgageCard";
+import { UnifiedMortgageSection } from "./UnifiedMortgageSection";
 import { EnhancedBillsManagementHub } from "./EnhancedBillsManagementHub";
 import { Settings, Plus } from "lucide-react";
 
@@ -246,11 +246,11 @@ export function TemplateMatchingDashboard() {
               </Card>
             </div>
 
-            {/* Two Column Layout - Mortgage & Bills */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-              {/* Left Column - Enhanced Mortgage */}
-              <div>
-                <EnhancedMortgageCard
+            {/* Two Column Layout - Unified Mortgage & Bills */}
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+              {/* Left Column - Unified Mortgage Section (2/3 width) */}
+              <div className="xl:col-span-2">
+                <UnifiedMortgageSection
                   outstandingBalance={487234}
                   interestRate={6.21}
                   monthlyPayment={9000}
@@ -263,8 +263,8 @@ export function TemplateMatchingDashboard() {
                 />
               </div>
 
-              {/* Right Column - Enhanced Bills Management Hub */}
-              <div>
+              {/* Right Column - Enhanced Bills Management Hub (1/3 width) */}
+              <div className="xl:col-span-1">
                 <EnhancedBillsManagementHub />
               </div>
             </div>
@@ -273,7 +273,7 @@ export function TemplateMatchingDashboard() {
 
         {activeTab === 'mortgage' && (
           <div className="space-y-6">
-            <EnhancedMortgageCard
+            <UnifiedMortgageSection
               outstandingBalance={487234}
               interestRate={6.21}
               monthlyPayment={9000}
