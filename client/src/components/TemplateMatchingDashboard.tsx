@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { NavigationTabs } from "./NavigationTabs";
 import { UnifiedMortgageSection } from "./UnifiedMortgageSection";
 import { EnhancedBillsManagementHub } from "./EnhancedBillsManagementHub";
+import { AutoTagDashboard } from "./AutoTagDashboard";
 import { Settings, Plus } from "lucide-react";
 
 export function TemplateMatchingDashboard() {
@@ -293,8 +294,14 @@ export function TemplateMatchingDashboard() {
           </div>
         )}
 
+        {activeTab === 'auto-tag' && (
+          <div className="space-y-6">
+            <AutoTagDashboard />
+          </div>
+        )}
+
         {/* Other tabs content can be added here */}
-        {['transactions', 'subscriptions', 'auto-tag'].includes(activeTab) && (
+        {['transactions', 'subscriptions'].includes(activeTab) && (
           <Card className="p-12 bg-white/70 backdrop-blur-sm border-gray-200">
             <div className="text-center">
               <h3 className="text-xl font-semibold text-gray-900 mb-2">
