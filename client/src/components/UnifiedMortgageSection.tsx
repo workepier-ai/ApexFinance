@@ -465,35 +465,29 @@ export function UnifiedMortgageSection({
               <RefreshCw className="w-4 h-4 mr-2" />
               Refinance
             </Button>
+            <Button
+              variant={showPaymentSection ? "default" : "outline"}
+              className={showPaymentSection ? "bg-green-500 text-white hover:bg-green-600" : ""}
+              onClick={() => setShowPaymentSection(!showPaymentSection)}
+            >
+              {showPaymentSection ? (
+                <><Eye className="w-4 h-4 mr-2" />Payment Details</>
+              ) : (
+                <><EyeOff className="w-4 h-4 mr-2" />Payment Details</>
+              )}
+            </Button>
           </div>
         </CardContent>
       </Card>
 
       {/* Integrated Payment History/Schedule Section */}
+      {showPaymentSection && (
       <Card className="bg-white border-gray-200">
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <CardTitle className="text-lg font-semibold text-gray-900">
-                Mortgage Payment Details
-              </CardTitle>
-
-              {/* Show/Hide Toggle */}
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="show-payment-section"
-                  checked={showPaymentSection}
-                  onCheckedChange={setShowPaymentSection}
-                />
-                <Label htmlFor="show-payment-section" className="text-sm text-gray-600">
-                  {showPaymentSection ? (
-                    <><Eye className="w-4 h-4 inline mr-1" />Show</>
-                  ) : (
-                    <><EyeOff className="w-4 h-4 inline mr-1" />Hidden</>
-                  )}
-                </Label>
-              </div>
-            </div>
+            <CardTitle className="text-lg font-semibold text-gray-900">
+              Mortgage Payment Details
+            </CardTitle>
 
             <div className="flex items-center space-x-2">
               <Button variant="outline" size="sm">
@@ -503,28 +497,25 @@ export function UnifiedMortgageSection({
           </div>
 
           {/* View Toggle Tabs */}
-          {showPaymentSection && (
-            <Tabs value={activeView} onValueChange={(value) => setActiveView(value as any)} className="mt-4">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="history" className="flex items-center space-x-2">
-                  <History className="w-4 h-4" />
-                  <span>Payment History</span>
-                </TabsTrigger>
-                <TabsTrigger value="schedule" className="flex items-center space-x-2">
-                  <Calendar className="w-4 h-4" />
-                  <span>Upcoming Schedule</span>
-                </TabsTrigger>
-                <TabsTrigger value="amortization" className="flex items-center space-x-2">
-                  <Calculator className="w-4 h-4" />
-                  <span>Amortization</span>
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          )}
+          <Tabs value={activeView} onValueChange={(value) => setActiveView(value as any)} className="mt-4">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="history" className="flex items-center space-x-2">
+                <History className="w-4 h-4" />
+                <span>Payment History</span>
+              </TabsTrigger>
+              <TabsTrigger value="schedule" className="flex items-center space-x-2">
+                <Calendar className="w-4 h-4" />
+                <span>Upcoming Schedule</span>
+              </TabsTrigger>
+              <TabsTrigger value="amortization" className="flex items-center space-x-2">
+                <Calculator className="w-4 h-4" />
+                <span>Amortization</span>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </CardHeader>
 
-        {showPaymentSection && (
-          <CardContent>
+        <CardContent>
             <Tabs value={activeView} onValueChange={(value) => setActiveView(value as any)}>
               {/* Payment History View */}
               <TabsContent value="history">
@@ -673,8 +664,8 @@ export function UnifiedMortgageSection({
               </TabsContent>
             </Tabs>
           </CardContent>
-        )}
       </Card>
+      )}
     </div>
   );
 }

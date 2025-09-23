@@ -3,6 +3,7 @@ import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { NavigationTabs } from "./NavigationTabs";
 import { UnifiedMortgageSection } from "./UnifiedMortgageSection";
+import { CompactMortgageSection } from "./CompactMortgageSection";
 import { EnhancedBillsManagementHub } from "./EnhancedBillsManagementHub";
 import { UpcomingBillsSection } from "./UpcomingBillsSection";
 import { AutoTagDashboard } from "./AutoTagDashboard";
@@ -14,11 +15,11 @@ export function TemplateMatchingDashboard() {
 
   // Bank account data (configurable)
   const bankAccounts = [
-    { name: 'BOQ Everyday', balance: 12450, type: 'everyday' },
-    { name: 'Westpac Savings', balance: 18200, type: 'savings' },
-    { name: 'ANZ Term Deposit', balance: 15600, type: 'term_deposit' },
-    { name: 'BOQ Mortgage Offset', balance: 2000, type: 'mortgage_offset' },
-    { name: 'Cash', balance: 500, type: 'cash' }
+    { name: 'BOQ Everyday', balance: 12450, type: 'everyday', color: 'bg-blue-100 text-blue-700 border-blue-200' },
+    { name: 'Westpac Savings', balance: 18200, type: 'savings', color: 'bg-green-100 text-green-700 border-green-200' },
+    { name: 'ANZ Term Deposit', balance: 15600, type: 'term_deposit', color: 'bg-purple-100 text-purple-700 border-purple-200' },
+    { name: 'BOQ Mortgage Offset', balance: 2000, type: 'mortgage_offset', color: 'bg-orange-100 text-orange-700 border-orange-200' },
+    { name: 'Cash', balance: 500, type: 'cash', color: 'bg-gray-100 text-gray-700 border-gray-200' }
   ];
 
   // Financial calculation functions
@@ -35,7 +36,13 @@ export function TemplateMatchingDashboard() {
 
     // Calculate bills due before next mortgage payment
     const billsDueBeforeMortgage = bills.filter(bill => {
-      const billDate = new Date(`2025-${bill.nextDue.replace(' ', '-')}`);
+      // Parse dates like "SEP 25", "OCT 3" etc.
+      const [month, day] = bill.nextDue.split(' ');
+      const monthMap: { [key: string]: number } = {
+        'JAN': 0, 'FEB': 1, 'MAR': 2, 'APR': 3, 'MAY': 4, 'JUN': 5,
+        'JUL': 6, 'AUG': 7, 'SEP': 8, 'OCT': 9, 'NOV': 10, 'DEC': 11
+      };
+      const billDate = new Date(2025, monthMap[month], parseInt(day));
       return billDate <= nextMortgageDue;
     });
 
@@ -100,7 +107,7 @@ export function TemplateMatchingDashboard() {
       name: 'NBN INTERNET',
       amount: 65.99,
       frequency: 'Monthly' as const,
-      nextDue: 'SEP 21',
+      nextDue: 'SEP 25',
       status: 'DUE' as const,
       icon: '🌐'
     },
@@ -109,9 +116,73 @@ export function TemplateMatchingDashboard() {
       name: 'PHONE',
       amount: 45,
       frequency: 'Monthly' as const,
-      nextDue: 'SEP 25',
+      nextDue: 'SEP 28',
       status: 'READY' as const,
       icon: '📱'
+    },
+    {
+      id: 'water',
+      name: 'WATER',
+      amount: 89,
+      frequency: 'Quarterly' as const,
+      nextDue: 'SEP 30',
+      status: 'SCHEDULED' as const,
+      icon: '💧',
+      isVariable: true
+    },
+    {
+      id: 'netflix',
+      name: 'NETFLIX',
+      amount: 24.99,
+      frequency: 'Monthly' as const,
+      nextDue: 'OCT 2',
+      status: 'SCHEDULED' as const,
+      icon: '🎬'
+    },
+    {
+      id: 'groceries',
+      name: 'GROCERIES',
+      amount: 450,
+      frequency: 'Weekly' as const,
+      nextDue: 'SEP 26',
+      status: 'READY' as const,
+      icon: '🛒'
+    },
+    {
+      id: 'fuel',
+      name: 'FUEL',
+      amount: 120,
+      frequency: 'Weekly' as const,
+      nextDue: 'SEP 27',
+      status: 'READY' as const,
+      icon: '⛽'
+    },
+    {
+      id: 'insurance',
+      name: 'CAR INSURANCE',
+      amount: 280,
+      frequency: 'Monthly' as const,
+      nextDue: 'OCT 3',
+      status: 'READY' as const,
+      icon: '🚗'
+    },
+    {
+      id: 'spotify',
+      name: 'SPOTIFY',
+      amount: 22.99,
+      frequency: 'Monthly' as const,
+      nextDue: 'OCT 5',
+      status: 'SCHEDULED' as const,
+      icon: '🎵'
+    },
+    {
+      id: 'gym',
+      name: 'GYM MEMBERSHIP',
+      amount: 75,
+      frequency: 'Monthly' as const,
+      nextDue: 'OCT 7',
+      status: 'READY' as const,
+      icon: '💪'
     },
     {
       id: 'electricity',
@@ -122,25 +193,6 @@ export function TemplateMatchingDashboard() {
       status: 'READY' as const,
       icon: '⚡',
       isVariable: true
-    },
-    {
-      id: 'water',
-      name: 'WATER',
-      amount: 89,
-      frequency: 'Quarterly' as const,
-      nextDue: 'SEP 24',
-      status: 'SCHEDULED' as const,
-      icon: '💧',
-      isVariable: true
-    },
-    {
-      id: 'netflix',
-      name: 'NETFLIX',
-      amount: 24.99,
-      frequency: 'Monthly' as const,
-      nextDue: 'SEP 23',
-      status: 'SCHEDULED' as const,
-      icon: '🎬'
     }
   ];
 
@@ -229,11 +281,10 @@ export function TemplateMatchingDashboard() {
                     <span className="text-2xl">💳</span>
                   </div>
                 </div>
-                <div className="space-y-1 text-xs text-gray-500">
-                  {financials.bankAccounts.slice(0, 2).map((account, index) => (
-                    <div key={index} className="flex justify-between">
-                      <span>{account.name}:</span>
-                      <span>${account.balance.toLocaleString()}</span>
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {financials.bankAccounts.map((account, index) => (
+                    <div key={index} className={`px-3 py-1 rounded-full text-xs font-medium border ${account.color}`}>
+                      {account.name.split(' ')[0]} ${(account.balance / 1000).toFixed(1)}k
                     </div>
                   ))}
                 </div>
@@ -332,7 +383,7 @@ export function TemplateMatchingDashboard() {
 
             {/* Two Column Layout - Unified Mortgage & Bills */}
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-              {/* Left Column - Unified Mortgage Section (2/3 width) */}
+              {/* Left Column - Full Mortgage Section with Transaction History (2/3 width) */}
               <div className="xl:col-span-2">
                 <UnifiedMortgageSection
                   outstandingBalance={487234}
