@@ -1,15 +1,89 @@
 import { useState } from "react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card } from "./ui/card";
+import { Button } from "./ui/button";
 import { NavigationTabs } from "./NavigationTabs";
 import { UnifiedMortgageSection } from "./UnifiedMortgageSection";
 import { EnhancedBillsManagementHub } from "./EnhancedBillsManagementHub";
+import { UpcomingBillsSection } from "./UpcomingBillsSection";
 import { AutoTagDashboard } from "./AutoTagDashboard";
 import { PropertyManagementDashboard } from "./PropertyManagementDashboard";
 import { Settings, Plus } from "lucide-react";
 
 export function TemplateMatchingDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
+
+  // Bank account data (configurable)
+  const bankAccounts = [
+    { name: 'BOQ Everyday', balance: 12450, type: 'everyday' },
+    { name: 'Westpac Savings', balance: 18200, type: 'savings' },
+    { name: 'ANZ Term Deposit', balance: 15600, type: 'term_deposit' },
+    { name: 'BOQ Mortgage Offset', balance: 2000, type: 'mortgage_offset' },
+    { name: 'Cash', balance: 500, type: 'cash' }
+  ];
+
+  // Financial calculation functions
+  const calculateFinancialProjections = (bills: any[]) => {
+    const monthlyIncome = 8750;
+    const mortgagePayment = 9000;
+    const extraMortgagePayments = 500; // configurable
+    const savingsTransfer = 1200; // configurable
+    const nextMortgageDue = new Date('2025-10-08');
+    const today = new Date();
+
+    // Calculate total current balance across all accounts
+    const totalCurrentBalance = bankAccounts.reduce((sum, account) => sum + account.balance, 0);
+
+    // Calculate bills due before next mortgage payment
+    const billsDueBeforeMortgage = bills.filter(bill => {
+      const billDate = new Date(`2025-${bill.nextDue.replace(' ', '-')}`);
+      return billDate <= nextMortgageDue;
+    });
+
+    const totalBillsBeforeMortgage = billsDueBeforeMortgage.reduce((sum, bill) => sum + bill.amount, 0);
+    const urgentBills = billsDueBeforeMortgage.filter(bill => bill.status === 'DUE' || bill.status === 'READY').length;
+    const autoPayBills = billsDueBeforeMortgage.filter(bill => bill.status === 'SCHEDULED').length;
+
+    // Calculate spendable balance before mortgage (income - bills due before mortgage)
+    const daysUntilMortgage = Math.ceil((nextMortgageDue.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    const dailyIncome = monthlyIncome / 30; // approximate
+    const incomeUntilMortgage = dailyIncome * daysUntilMortgage;
+    const spendableBeforeMortgage = incomeUntilMortgage - totalBillsBeforeMortgage;
+
+    // Calculate savings rate
+    const totalMonthlyCosts = totalBillsBeforeMortgage + mortgagePayment; // approximate monthly costs
+    const mortgagePercentage = (mortgagePayment / monthlyIncome) * 100;
+    const extraPaymentsPercentage = (extraMortgagePayments / monthlyIncome) * 100;
+    const savingsPercentage = (savingsTransfer / monthlyIncome) * 100;
+    const totalSavingsRate = extraPaymentsPercentage + savingsPercentage;
+
+    // Calculate emergency runway (months of expenses coverage)
+    const monthlyExpenses = mortgagePayment + (totalBillsBeforeMortgage * 12 / 12); // Approximate monthly bills
+    const emergencyRunway = totalCurrentBalance / monthlyExpenses;
+
+    // Calculate income vs obligations
+    const totalMonthlyObligations = mortgagePayment + totalBillsBeforeMortgage;
+    const netCashFlow = monthlyIncome - totalMonthlyObligations;
+
+    return {
+      totalCurrentBalance,
+      bankAccounts,
+      monthlyIncome,
+      totalBillsBeforeMortgage,
+      billsDueBeforeMortgage: billsDueBeforeMortgage.length,
+      urgentBills,
+      autoPayBills,
+      daysUntilMortgage,
+      spendableBeforeMortgage,
+      incomeUntilMortgage,
+      mortgagePercentage,
+      extraPaymentsPercentage,
+      savingsPercentage,
+      totalSavingsRate,
+      emergencyRunway,
+      netCashFlow,
+      totalMonthlyObligations
+    };
+  };
 
   const mockBills = [
     {
@@ -100,6 +174,8 @@ export function TemplateMatchingDashboard() {
     }
   ];
 
+  const financials = calculateFinancialProjections(mockBills);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Header */}
@@ -139,27 +215,27 @@ export function TemplateMatchingDashboard() {
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <h3 className="text-sm font-medium text-gray-600 uppercase tracking-wide">
-                      Total Balance
+                      Current Bank Balances
                     </h3>
-                    <div className="text-3xl font-bold text-gray-900">$48,250</div>
-                    <div className="text-sm text-green-600 flex items-center mt-1">
-                      <span className="mr-1">↗</span>
-                      +2.1%
+                    <div className="text-4xl font-bold text-gray-900">
+                      ${financials.totalCurrentBalance.toLocaleString()}
+                    </div>
+                    <div className="text-sm text-blue-600 flex items-center mt-1">
+                      <span className="mr-1">🏛️</span>
+                      {financials.bankAccounts.length} accounts
                     </div>
                   </div>
                   <div className="p-3 bg-blue-100 rounded-full">
-                    <span className="text-2xl">💰</span>
+                    <span className="text-2xl">💳</span>
                   </div>
                 </div>
                 <div className="space-y-1 text-xs text-gray-500">
-                  <div className="flex justify-between">
-                    <span>Last Month:</span>
-                    <span>+$1,023</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Last Quarter:</span>
-                    <span>+$4,567</span>
-                  </div>
+                  {financials.bankAccounts.slice(0, 2).map((account, index) => (
+                    <div key={index} className="flex justify-between">
+                      <span>{account.name}:</span>
+                      <span>${account.balance.toLocaleString()}</span>
+                    </div>
+                  ))}
                 </div>
               </Card>
 
@@ -169,10 +245,12 @@ export function TemplateMatchingDashboard() {
                     <h3 className="text-sm font-medium text-gray-600 uppercase tracking-wide">
                       Monthly Income
                     </h3>
-                    <div className="text-3xl font-bold text-gray-900">$8,750</div>
+                    <div className="text-3xl font-bold text-gray-900">
+                      ${financials.monthlyIncome.toLocaleString()}
+                    </div>
                     <div className="text-sm text-green-600 flex items-center mt-1">
-                      <span className="mr-1">↗</span>
-                      +12%
+                      <span className="mr-1">💰</span>
+                      Net: +${financials.netCashFlow.toLocaleString()}
                     </div>
                   </div>
                   <div className="p-3 bg-green-100 rounded-full">
@@ -181,12 +259,12 @@ export function TemplateMatchingDashboard() {
                 </div>
                 <div className="space-y-1 text-xs text-gray-500">
                   <div className="flex justify-between">
-                    <span>Last Month:</span>
-                    <span>$7,814</span>
+                    <span>vs Obligations:</span>
+                    <span>${financials.totalMonthlyObligations.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>3-Mo Avg:</span>
-                    <span>$8,123</span>
+                    <span>Growth:</span>
+                    <span>+12% MoM</span>
                   </div>
                 </div>
               </Card>
@@ -195,26 +273,28 @@ export function TemplateMatchingDashboard() {
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <h3 className="text-sm font-medium text-gray-600 uppercase tracking-wide">
-                      Cash Flow (30D)
+                      Spendable Before Mortgage
                     </h3>
-                    <div className="text-3xl font-bold text-green-600">+$4,250</div>
+                    <div className="text-3xl font-bold text-green-600">
+                      ${Math.max(0, financials.spendableBeforeMortgage).toLocaleString()}
+                    </div>
                     <div className="text-sm text-green-600 flex items-center mt-1">
-                      <span className="mr-1">↗</span>
-                      Positive
+                      <span className="mr-1">💰</span>
+                      After bills paid
                     </div>
                   </div>
                   <div className="p-3 bg-green-100 rounded-full">
-                    <span className="text-2xl">💚</span>
+                    <span className="text-2xl">🛍️</span>
                   </div>
                 </div>
                 <div className="space-y-1 text-xs text-gray-500">
                   <div className="flex justify-between">
-                    <span>Last Month:</span>
-                    <span>+$3,892</span>
+                    <span>Income ({financials.daysUntilMortgage}d):</span>
+                    <span>${financials.incomeUntilMortgage.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>3-Mo Avg:</span>
-                    <span>+$3,789</span>
+                    <span>Bills Due:</span>
+                    <span>-${financials.totalBillsBeforeMortgage.toLocaleString()}</span>
                   </div>
                 </div>
               </Card>
@@ -223,26 +303,28 @@ export function TemplateMatchingDashboard() {
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <h3 className="text-sm font-medium text-gray-600 uppercase tracking-wide">
-                      Collection Rate
+                      Savings Rate
                     </h3>
-                    <div className="text-3xl font-bold text-purple-600">94%</div>
+                    <div className="text-3xl font-bold text-purple-600">
+                      {financials.totalSavingsRate.toFixed(1)}%
+                    </div>
                     <div className="text-sm text-purple-600 flex items-center mt-1">
-                      <span className="mr-1">↗</span>
-                      Healthy
+                      <span className="mr-1">📊</span>
+                      Of income
                     </div>
                   </div>
                   <div className="p-3 bg-purple-100 rounded-full">
-                    <span className="text-2xl">🎯</span>
+                    <span className="text-2xl">💎</span>
                   </div>
                 </div>
                 <div className="space-y-1 text-xs text-gray-500">
                   <div className="flex justify-between">
-                    <span>Last Month:</span>
-                    <span>92%</span>
+                    <span>Mortgage:</span>
+                    <span>{financials.mortgagePercentage.toFixed(1)}%</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>3-Mo Avg:</span>
-                    <span>91%</span>
+                    <span>Extra + Savings:</span>
+                    <span>{financials.totalSavingsRate.toFixed(1)}%</span>
                   </div>
                 </div>
               </Card>
@@ -265,9 +347,9 @@ export function TemplateMatchingDashboard() {
                 />
               </div>
 
-              {/* Right Column - Enhanced Bills Management Hub (1/3 width) */}
+              {/* Right Column - Upcoming Bills Section (1/3 width) */}
               <div className="xl:col-span-1">
-                <EnhancedBillsManagementHub />
+                <UpcomingBillsSection />
               </div>
             </div>
           </div>

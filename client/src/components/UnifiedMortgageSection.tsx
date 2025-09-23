@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Button } from "./ui/button";
+import { Progress } from "./ui/progress";
+import { Badge } from "./ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Switch } from "./ui/switch";
+import { Label } from "./ui/label";
 import {
   Home,
   Calendar,
@@ -386,7 +386,8 @@ export function UnifiedMortgageSection({
           </div>
 
           {/* Monthly Payment Breakdown */}
-          <Card className="p-4 border border-gray-200">
+          <div>
+            <Card className="p-4 border border-gray-200">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-medium text-gray-600 uppercase tracking-wide">Monthly Payment</h3>
               <div className="text-lg font-semibold">
@@ -411,9 +412,11 @@ export function UnifiedMortgageSection({
                 <Progress value={interestPercentage} className="h-2 bg-gray-200" />
               </div>
             </div>
-          </Card>
+            </Card>
+          </div>
 
           {/* Next Payment Due Card */}
+          <div>
           <Card className={`p-4 border ${daysUntilDue <= 7 ? 'bg-red-50 border-red-200' : 'border-gray-200'}`}>
             <div className="flex items-center space-x-3">
               <div className={`p-2 rounded-xl ${
@@ -437,6 +440,7 @@ export function UnifiedMortgageSection({
               </div>
             </div>
           </Card>
+          </div>
 
           {/* Action Buttons */}
           <div className="flex flex-wrap gap-3">
