@@ -8,7 +8,16 @@
       "Bash(set NODE_ENV=development)",
       "Bash(tsx:*)",
       "Bash(npx tsx:*)",
-      "Bash(set PORT=3000)"
+      "Bash(set PORT=3000)",
+      "Bash(curl:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git clone:*)",
+      "WebSearch",
+      "Bash(npm start)",
+      "Bash(npx:*)",
+      "Bash(copy UnifiedMortgageSection.tsx UnifiedMortgageSection.backup.tsx)"
     ],
     "deny": [],
     "ask": []
