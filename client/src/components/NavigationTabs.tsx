@@ -36,6 +36,12 @@ export function NavigationTabs({ activeTab, onTabChange }: NavigationTabsProps) 
       description: 'Bill management and tracking'
     },
     {
+      id: 'bills-advanced',
+      label: 'Bills Advanced',
+      icon: FileText,
+      description: 'Advanced bill management with automation'
+    },
+    {
       id: 'mortgage',
       label: 'Mortgage',
       icon: Home,

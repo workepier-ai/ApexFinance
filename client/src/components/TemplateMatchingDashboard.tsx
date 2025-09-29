@@ -5,6 +5,7 @@ import { NavigationTabs } from "./NavigationTabs";
 import { UnifiedMortgageSection } from "./UnifiedMortgageSection";
 import { CompactMortgageSection } from "./CompactMortgageSection";
 import { EnhancedBillsManagementHub } from "./EnhancedBillsManagementHub";
+import { BillManagementAdvanced } from "./BillManagementAdvanced";
 import { UpcomingBillsSection } from "./UpcomingBillsSection";
 import { AutoTagDashboard } from "./AutoTagDashboard";
 import { PropertyManagementDashboard } from "./PropertyManagementDashboard";
@@ -425,6 +426,12 @@ export function TemplateMatchingDashboard() {
         {activeTab === 'bills' && (
           <div className="space-y-6">
             <EnhancedBillsManagementHub />
+          </div>
+        )}
+
+        {activeTab === 'bills-advanced' && (
+          <div className="space-y-6">
+            <BillManagementAdvanced />
           </div>
         )}
 

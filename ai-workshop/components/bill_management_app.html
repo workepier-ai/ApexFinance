@@ -1,0 +1,1767 @@
+            //<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bill Management System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        // Toggle functions
+        function togglePayment() {
+            const toggle = document.getElementById('paymentToggle');
+            toggle.classList.toggle('active');
+            
+            // Show/hide account section based on payment method
+            const accountSection = document.getElementById('accountSection');
+            const subAccountSection = document.getElementById('subAccountSection');
+            
+            if (toggle.classList.contains('active')) {
+                // Direct debit selected - show account options
+                accountSection.style.display = 'block';
+            } else {
+                // Manual payment selected - hide account options
+                accountSection.style.display = 'none';
+                subAccountSection.style.display = 'none';
+                document.getElementById('accountBalance').style.display = 'none';
+            }
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f8fafc;
+            color: #1e293b;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 30px;
+            gap: 15px;
+        }
+
+        .back-btn {
+            background: #f1f5f9;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            color: #64748b;
+            text-decoration: none;
+        }
+
+        .back-btn:hover {
+            background: #e2e8f0;
+        }
+
+        h1 {
+            font-size: 32px;
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        /* Stats Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            border-left: 4px solid;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .stat-card.total { border-left-color: #3b82f6; }
+        .stat-card.active { border-left-color: #10b981; }
+        .stat-card.due { border-left-color: #f59e0b; }
+        .stat-card.overdue { border-left-color: #ef4444; }
+
+        .stat-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .stat-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+        }
+
+        .stat-card.total .stat-icon { background: #3b82f6; }
+        .stat-card.active .stat-icon { background: #10b981; }
+        .stat-card.due .stat-icon { background: #f59e0b; }
+        .stat-card.overdue .stat-icon { background: #ef4444; }
+
+        .stat-title {
+            font-size: 14px;
+            color: #64748b;
+            font-weight: 500;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        /* Navigation Tabs */
+        .nav-tabs {
+            display: flex;
+            gap: 2px;
+            background: #f1f5f9;
+            padding: 4px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .nav-tab {
+            background: transparent;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            color: #64748b;
+            transition: all 0.2s;
+        }
+
+        .nav-tab.active {
+            background: white;
+            color: #1e293b;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .search-filters {
+            display: flex;
+            gap: 12px;
+            flex: 1;
+            min-width: 300px;
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .search-box input,
+        .filter-select select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+        }
+
+        .search-box input:focus,
+        .filter-select select:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .add-bill-btn {
+            background: #1e293b;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.2s;
+        }
+
+        .add-bill-btn:hover {
+            background: #334155;
+        }
+
+        /* Bill List */
+        .bill-list {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .bill-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px;
+            border-bottom: 1px solid #f1f5f9;
+            transition: background 0.2s;
+        }
+
+        .bill-item:hover {
+            background: #f8fafc;
+        }
+
+        .bill-item:last-child {
+            border-bottom: none;
+        }
+
+        .bill-info {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex: 1;
+        }
+
+        .bill-name {
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 4px;
+        }
+
+        .bill-details {
+            display: flex;
+            gap: 16px;
+            font-size: 14px;
+            color: #64748b;
+        }
+
+        .bill-amount {
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .bill-status {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-active {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status-paused {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .bill-due {
+            text-align: right;
+            margin-right: 16px;
+        }
+
+        .due-date {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .due-in {
+            font-size: 12px;
+            color: #64748b;
+        }
+
+        .due-soon { color: #f59e0b; }
+        .due-today { color: #ef4444; }
+        .due-later { color: #10b981; }
+
+        .bill-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .action-btn {
+            background: transparent;
+            border: 1px solid #d1d5db;
+            padding: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            color: #64748b;
+            transition: all 0.2s;
+        }
+
+        .action-btn:hover {
+            background: #f8fafc;
+            border-color: #9ca3af;
+        }
+
+        /* Modal Overlay */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal {
+            background: white;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        /* Quick Entry Modal */
+        .quick-entry {
+            padding: 40px;
+            text-align: center;
+        }
+
+        .quick-entry h2 {
+            font-size: 24px;
+            margin-bottom: 8px;
+            color: #1e293b;
+        }
+
+        .quick-entry .subtitle {
+            color: #64748b;
+            margin-bottom: 40px;
+        }
+
+        .upload-area {
+            border: 2px dashed #d1d5db;
+            border-radius: 12px;
+            padding: 60px 20px;
+            margin-bottom: 30px;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .upload-area:hover,
+        .upload-area.dragover {
+            border-color: #3b82f6;
+            background: #f8fafc;
+        }
+
+        .upload-icon {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 20px;
+            color: #9ca3af;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #d1d5db;
+            border-radius: 12px;
+        }
+
+        .upload-text {
+            font-size: 16px;
+            color: #64748b;
+            margin-bottom: 8px;
+        }
+
+        .upload-subtext {
+            font-size: 14px;
+            color: #9ca3af;
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+            text-align: left;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .form-input,
+        .form-textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.2s;
+        }
+
+        .form-input:focus,
+        .form-textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .form-textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 30px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 14px 24px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: #64748b;
+            border: 1px solid #d1d5db;
+        }
+
+        .btn-secondary:hover {
+            background: #f8fafc;
+        }
+
+        /* Detailed Entry Modal */
+        .detailed-entry {
+            padding: 30px;
+        }
+
+        .detailed-entry h2 {
+            font-size: 24px;
+            margin-bottom: 8px;
+            color: #1e293b;
+        }
+
+        .detailed-entry .subtitle {
+            color: #64748b;
+            margin-bottom: 30px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .form-grid .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .toggle-switch {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .toggle {
+            position: relative;
+            width: 50px;
+            height: 28px;
+            background: #d1d5db;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .toggle.active {
+            background: #3b82f6;
+        }
+
+        .toggle::before {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 24px;
+            height: 24px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.2s;
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .checkbox-item input[type="checkbox"] {
+            display: none;
+        }
+
+        .checkmark {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #d1d5db;
+            border-radius: 4px;
+            position: relative;
+            transition: all 0.2s;
+        }
+
+        .checkbox-item input:checked + .checkmark {
+            background: #3b82f6;
+            border-color: #3b82f6;
+        }
+
+        .checkbox-item input:checked + .checkmark::after {
+            content: '✓';
+            position: absolute;
+            color: white;
+            font-size: 12px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .account-balance {
+            padding: 8px 12px;
+            background: #f8fafc;
+            border-radius: 6px;
+            border-left: 3px solid #10b981;
+        }
+
+        .reminder-options {
+            padding-left: 32px;
+        }
+
+        .resume-modal {
+            padding: 30px;
+            text-align: center;
+        }
+
+        .resume-options {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin: 20px 0;
+        }
+
+        .option-card {
+            padding: 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: left;
+        }
+
+        .option-card:hover {
+            border-color: #3b82f6;
+            background: #f8fafc;
+        }
+
+        .option-card.selected {
+            border-color: #3b82f6;
+            background: #eff6ff;
+        }
+
+        .option-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .option-description {
+            font-size: 14px;
+            color: #64748b;
+        }
+
+        .date-input-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: transparent;
+            border: none;
+            font-size: 24px;
+            color: #9ca3af;
+            cursor: pointer;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .close-btn:hover {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .search-filters {
+                min-width: auto;
+            }
+
+            .bill-item {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 12px;
+            }
+
+            .bill-info {
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .bill-details {
+                flex-direction: column;
+                gap: 4px;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .modal {
+                width: 95%;
+                margin: 20px;
+            }
+
+            .quick-entry,
+            .detailed-entry {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <a href="#" class="back-btn" onclick="showDashboard()">
+                <span>←</span> Back to Overview
+            </a>
+            <h1>Bill Management</h1>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+            <div class="stat-card total">
+                <div class="stat-header">
+                    <div class="stat-icon">$</div>
+                    <div class="stat-title">Monthly Total</div>
+                </div>
+                <div class="stat-value">$430.49</div>
+            </div>
+            <div class="stat-card active">
+                <div class="stat-header">
+                    <div class="stat-icon">✓</div>
+                    <div class="stat-title">Active Bills</div>
+                </div>
+                <div class="stat-value">4</div>
+            </div>
+            <div class="stat-card due">
+                <div class="stat-header">
+                    <div class="stat-icon">⏰</div>
+                    <div class="stat-title">Due This Week</div>
+                </div>
+                <div class="stat-value">1</div>
+            </div>
+            <div class="stat-card overdue">
+                <div class="stat-header">
+                    <div class="stat-icon">⚠</div>
+                    <div class="stat-title">Overdue</div>
+                </div>
+                <div class="stat-value">0</div>
+            </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="switchTab('all', this)">All Bills</button>
+            <button class="nav-tab" onclick="switchTab('upcoming', this)">Upcoming (1)</button>
+            <button class="nav-tab" onclick="switchTab('overdue', this)">Overdue (0)</button>
+        </div>
+
+        <!-- Controls -->
+        <div class="controls">
+            <div class="search-filters">
+                <div class="search-box">
+                    <input type="text" placeholder="Search bills..." oninput="filterBills(this.value)">
+                </div>
+                <div class="filter-select">
+                    <select onchange="filterByCategory(this.value)">
+                        <option value="">All Categories</option>
+                        <option value="entertainment">Entertainment</option>
+                        <option value="utilities">Utilities</option>
+                        <option value="telecom">Telecom</option>
+                        <option value="insurance">Insurance</option>
+                        <option value="fitness">Fitness</option>
+                    </select>
+                </div>
+                <div class="filter-select">
+                    <select onchange="filterByStatus(this.value)">
+                        <option value="">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="paused">Paused</option>
+                    </select>
+                </div>
+            </div>
+            <button class="add-bill-btn" onclick="showQuickEntry()">
+                <span>+</span> Add Bill
+            </button>
+        </div>
+
+        <!-- Bill List -->
+        <div class="bill-list" id="billList">
+            <!-- Netflix -->
+            <div class="bill-item" data-category="entertainment" data-status="active">
+                <div class="bill-info">
+                    <div>
+                        <div class="bill-name">Netflix Subscription</div>
+                        <div class="bill-details">
+                            <span>$ $15.99</span>
+                            <span>📅 Monthly</span>
+                            <span>🔄 Auto</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="bill-status status-active">Active</div>
+                <div class="bill-due">
+                    <div class="due-date due-soon">Due in 17 days</div>
+                    <div class="due-in">2025-01-15</div>
+                </div>
+                <div class="bill-actions">
+                    <button class="action-btn" onclick="viewBill('netflix')" title="View">👁</button>
+                    <button class="action-btn" onclick="editBill('netflix')" title="Edit">✏️</button>
+                    <button class="action-btn" onclick="deleteBill('netflix')" title="Delete">🗑️</button>
+                </div>
+            </div>
+
+            <!-- Electricity -->
+            <div class="bill-item" data-category="utilities" data-status="active">
+                <div class="bill-info">
+                    <div>
+                        <div class="bill-name">Electricity Bill</div>
+                        <div class="bill-details">
+                            <span>$ $180.50</span>
+                            <span>📅 Monthly</span>
+                            <span>✋ Manual</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="bill-status status-active">Active</div>
+                <div class="bill-due">
+                    <div class="due-date due-later">Due in 30 days</div>
+                    <div class="due-in">2025-01-28</div>
+                </div>
+                <div class="bill-actions">
+                    <button class="action-btn" onclick="viewBill('electricity')" title="View">👁</button>
+                    <button class="action-btn" onclick="editBill('electricity')" title="Edit">✏️</button>
+                    <button class="action-btn" onclick="deleteBill('electricity')" title="Delete">🗑️</button>
+                </div>
+            </div>
+
+            <!-- Phone Plan -->
+            <div class="bill-item" data-category="telecom" data-status="active">
+                <div class="bill-info">
+                    <div>
+                        <div class="bill-name">Phone Plan</div>
+                        <div class="bill-details">
+                            <span>$ $89.00</span>
+                            <span>📅 Custom Days</span>
+                            <span>🔄 Auto</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="bill-status status-active">Active</div>
+                <div class="bill-due">
+                    <div class="due-date due-soon">Due in 7 days</div>
+                    <div class="due-in">2025-01-05</div>
+                </div>
+                <div class="bill-actions">
+                    <button class="action-btn" onclick="viewBill('phone')" title="View">👁</button>
+                    <button class="action-btn" onclick="editBill('phone')" title="Edit">✏️</button>
+                    <button class="action-btn" onclick="deleteBill('phone')" title="Delete">🗑️</button>
+                </div>
+            </div>
+
+            <!-- Car Insurance -->
+            <div class="bill-item" data-category="insurance" data-status="active">
+                <div class="bill-info">
+                    <div>
+                        <div class="bill-name">Car Insurance</div>
+                        <div class="bill-details">
+                            <span>$ $145.00</span>
+                            <span>📅 Monthly</span>
+                            <span>🔄 Auto</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="bill-status status-active">Active</div>
+                <div class="bill-due">
+                    <div class="due-date due-later">Due in 22 days</div>
+                    <div class="due-in">2025-01-20</div>
+                </div>
+                <div class="bill-actions">
+                    <button class="action-btn" onclick="viewBill('car-insurance')" title="View">👁</button>
+                    <button class="action-btn" onclick="editBill('car-insurance')" title="Edit">✏️</button>
+                    <button class="action-btn" onclick="deleteBill('car-insurance')" title="Delete">🗑️</button>
+                </div>
+            </div>
+
+            <!-- Gym Membership -->
+            <div class="bill-item" data-category="fitness" data-status="paused">
+                <div class="bill-info">
+                    <div>
+                        <div class="bill-name">Gym Membership</div>
+                        <div class="bill-details">
+                            <span>$ $49.95</span>
+                            <span>📅 Monthly</span>
+                            <span>✋ Manual</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="bill-status status-paused">Paused</div>
+                <div class="bill-due">
+                    <div class="due-date due-later">Due in 33 days</div>
+                    <div class="due-in">2025-02-01</div>
+                </div>
+                <div class="bill-actions">
+                    <button class="action-btn" onclick="resumeBill('gym')" title="Resume">▶️</button>
+                    <button class="action-btn" onclick="editBill('gym')" title="Edit">✏️</button>
+                    <button class="action-btn" onclick="deleteBill('gym')" title="Delete">🗑️</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Entry Modal -->
+    <div class="modal-overlay" id="quickEntryModal">
+        <div class="modal">
+            <button class="close-btn" onclick="closeModal('quickEntryModal')">&times;</button>
+            <div class="quick-entry">
+                <h2>Quick Bill Entry</h2>
+                <p class="subtitle">Just snap, note, and go. Zero required fields.</p>
+                
+                <div class="upload-area" onclick="document.getElementById('fileInput').click()" ondrop="handleDrop(event)" ondragover="handleDragOver(event)">
+                    <div class="upload-icon">📤</div>
+                    <div class="upload-text">Drop an image or click to upload</div>
+                    <div class="upload-subtext">Bill, receipt, or reminder photo</div>
+                    <input type="file" id="fileInput" accept="image/*" style="display: none;" onchange="handleFileSelect(event)">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Quick Notes</label>
+                    <textarea class="form-textarea" id="quickNotes" placeholder="Ampol Power"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Amount (optional)</label>
+                    <input type="text" class="form-input" id="quickAmount" placeholder="0.00">
+                </div>
+
+                <div class="modal-actions">
+                    <button class="btn btn-primary" onclick="saveQuickEntry()">
+                        💾 Save to Process Later
+                    </button>
+                    <button class="btn btn-secondary" onclick="switchToDetailed()">
+                        ➡️
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detailed Entry Modal -->
+    <div class="modal-overlay" id="detailedEntryModal">
+        <div class="modal">
+            <button class="close-btn" onclick="closeModal('detailedEntryModal')">&times;</button>
+            <div class="detailed-entry">
+                <div class="header">
+                    <button class="back-btn" onclick="switchToQuick()" style="margin-bottom: 20px;">
+                        ← Back to Dashboard
+                    </button>
+                </div>
+                
+                <h2>Detailed Bill Entry</h2>
+                <p class="subtitle">Complete bill information</p>
+                
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Bill Name *</label>
+                        <input type="text" class="form-input" id="billName" placeholder="Netflix Subscription">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Amount *</label>
+                        <input type="text" class="form-input" id="billAmount" placeholder="0.00">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Category</label>
+                        <select class="form-input" id="billCategory">
+                            <option value="">Select category</option>
+                            <option value="entertainment">Entertainment</option>
+                            <option value="utilities">Utilities</option>
+                            <option value="telecom">Telecom</option>
+                            <option value="insurance">Insurance</option>
+                            <option value="fitness">Fitness</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Frequency</label>
+                        <select class="form-input" id="billFrequency">
+                            <option value="">Select frequency</option>
+                            <option value="monthly">Monthly</option>
+                            <option value="quarterly">Quarterly</option>
+                            <option value="6months">6 Months</option>
+                            <option value="yearly">Yearly</option>
+                            <option value="custom-days">Custom Days</option>
+                            <option value="custom-weeks">Custom Weeks</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Due Day (1-31)</label>
+                        <input type="number" class="form-input" id="dueDay" placeholder="15" min="1" max="31">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">First Due Date</label>
+                        <input type="date" class="form-input" id="firstDueDate">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Payment Method</label>
+                        <div class="toggle-switch">
+                            <span>Manual Payment</span>
+                            <div class="toggle" id="paymentToggle" onclick="togglePayment()"></div>
+                            <span>Direct Debit</span>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group" id="accountSection">
+                        <label class="form-label">Payment Account</label>
+                        <select class="form-input" id="sourceAccount" onchange="updateSubAccounts()">
+                            <option value="">Select bank</option>
+                            <option value="up">UP Bank</option>
+                            <option value="commonwealth">Commonwealth Bank</option>
+                            <option value="anz">ANZ Bank</option>
+                            <option value="westpac">Westpac</option>
+                            <option value="nab">NAB</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" id="subAccountSection" style="display: none;">
+                        <label class="form-label">Sub Account</label>
+                        <select class="form-input" id="subAccount">
+                            <option value="">Select sub account</option>
+                        </select>
+                        <div class="account-balance" id="accountBalance" style="margin-top: 8px; font-size: 14px; color: #64748b;"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Bill Type</label>
+                        <div class="checkbox-group">
+                            <label class="checkbox-item">
+                                <input type="checkbox" id="isRecurring" onchange="toggleRecurringOptions()">
+                                <span class="checkmark"></span>
+                                Recurring Subscription
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group" id="cancelReminderSection" style="display: none;">
+                        <label class="form-label">Cancellation Reminder</label>
+                        <div class="checkbox-group">
+                            <label class="checkbox-item">
+                                <input type="checkbox" id="cancelReminder">
+                                <span class="checkmark"></span>
+                                Remind me to cancel this subscription
+                            </label>
+                        </div>
+                        <div class="reminder-options" id="reminderOptions" style="display: none; margin-top: 12px;">
+                            <select class="form-input" id="reminderTiming">
+                                <option value="7">7 days before renewal</option>
+                                <option value="14">14 days before renewal</option>
+                                <option value="30">30 days before renewal</option>
+                                <option value="custom">Custom timing</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group full-width">
+                        <label class="form-label">Website/Cancel URL</label>
+                        <input type="url" class="form-input" id="websiteUrl" placeholder="https://netflix.com/account">
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button class="btn btn-primary" onclick="saveBill()">💾 Save Bill</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resume Bill Modal -->
+    <div class="modal-overlay" id="resumeBillModal">
+        <div class="modal">
+            <button class="close-btn" onclick="closeModal('resumeBillModal')">&times;</button>
+            <div class="resume-modal">
+                <h2>Resume Bill Payment</h2>
+                <p class="subtitle">Choose how you'd like to resume this bill</p>
+                
+                <div class="resume-options">
+                    <div class="option-card" onclick="selectResumeOption('same', this)">
+                        <div class="option-title">Resume with same settings</div>
+                        <div class="option-description">Keep all existing bill details unchanged</div>
+                    </div>
+                    
+                    <div class="option-card" onclick="selectResumeOption('update', this)">
+                        <div class="option-title">Update bill details</div>
+                        <div class="option-description">Review and modify bill information before resuming</div>
+                    </div>
+                    
+                    <div class="option-card" onclick="selectResumeOption('new-date', this)">
+                        <div class="option-title">Set new start date</div>
+                        <div class="option-description">Resume with a specific date</div>
+                        <div class="date-input-group" style="display: none;" id="newDateInput">
+                            <label>New start date:</label>
+                            <input type="date" class="form-input" id="resumeDate" style="width: auto;">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button class="btn btn-primary" onclick="confirmResumeBill()" id="confirmResumeBtn" disabled>
+                        Resume Bill
+                    </button>
+                    <button class="btn btn-secondary" onclick="closeModal('resumeBillModal')">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State management
+        let bills = [
+            {
+                id: 'netflix',
+                name: 'Netflix Subscription',
+                amount: 15.99,
+                category: 'entertainment',
+                frequency: 'monthly',
+                status: 'active',
+                paymentMethod: 'auto',
+                account: 'up',
+                subAccount: 'saver',
+                isRecurring: true,
+                cancelReminder: true,
+                reminderTiming: '7',
+                dueDate: '2025-01-15'
+            },
+            {
+                id: 'electricity',
+                name: 'Electricity Bill',
+                amount: 180.50,
+                category: 'utilities',
+                frequency: 'monthly',
+                status: 'active',
+                paymentMethod: 'manual',
+                account: 'commonwealth',
+                subAccount: 'everyday',
+                isRecurring: false,
+                dueDate: '2025-01-28'
+            },
+            {
+                id: 'phone',
+                name: 'Phone Plan',
+                amount: 89.00,
+                category: 'telecom',
+                frequency: 'custom-days',
+                status: 'active',
+                paymentMethod: 'auto',
+                account: 'up',
+                subAccount: 'spending',
+                isRecurring: true,
+                cancelReminder: false,
+                dueDate: '2025-01-05'
+            },
+            {
+                id: 'car-insurance',
+                name: 'Car Insurance',
+                amount: 145.00,
+                category: 'insurance',
+                frequency: 'monthly',
+                status: 'active',
+                paymentMethod: 'auto',
+                account: 'up',
+                subAccount: 'bills',
+                isRecurring: true,
+                cancelReminder: false,
+                dueDate: '2025-01-20'
+            },
+            {
+                id: 'gym',
+                name: 'Gym Membership',
+                amount: 49.95,
+                category: 'fitness',
+                frequency: 'monthly',
+                status: 'paused',
+                paymentMethod: 'manual',
+                account: 'anz',
+                subAccount: 'savings',
+                isRecurring: true,
+                cancelReminder: true,
+                reminderTiming: '14',
+                dueDate: '2025-02-01'
+            }
+        ];
+
+        let currentTab = 'all';
+        let isDetailedMode = false;
+        let currentResumeOption = null;
+        let currentResumeBillId = null;
+
+        // Account configurations
+        const accountConfigs = {
+            'up': {
+                name: 'UP Bank',
+                subAccounts: [
+                    { id: 'spending', name: 'Spending Account', balance: 2547.83 },
+                    { id: 'saver', name: 'Saver Account', balance: 15420.12 },
+                    { id: 'bills', name: 'Bills Account', balance: 890.45 }
+                ]
+            },
+            'commonwealth': {
+                name: 'Commonwealth Bank',
+                subAccounts: [
+                    { id: 'everyday', name: 'Everyday Account', balance: 1234.56 },
+                    { id: 'savings', name: 'Savings Account', balance: 8765.43 }
+                ]
+            },
+            'anz': {
+                name: 'ANZ Bank',
+                subAccounts: [
+                    { id: 'transaction', name: 'Transaction Account', balance: 987.65 },
+                    { id: 'savings', name: 'Savings Account', balance: 5432.10 }
+                ]
+            },
+            'westpac': {
+                name: 'Westpac',
+                subAccounts: [
+                    { id: 'choice', name: 'Choice Account', balance: 654.32 },
+                    { id: 'savings', name: 'Savings Account', balance: 3210.98 }
+                ]
+            },
+            'nab': {
+                name: 'NAB',
+                subAccounts: [
+                    { id: 'classic', name: 'Classic Banking', balance: 432.10 },
+                    { id: 'isaver', name: 'iSaver Account', balance: 7654.32 }
+                ]
+            }
+        };
+
+        // Modal functions
+        function showQuickEntry() {
+            document.getElementById('quickEntryModal').classList.add('show');
+            resetQuickForm();
+        }
+
+        function showDetailedEntry() {
+            document.getElementById('detailedEntryModal').classList.add('show');
+            resetDetailedForm();
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('show');
+        }
+
+        function switchToDetailed() {
+            // Transfer data from quick entry to detailed entry
+            const notes = document.getElementById('quickNotes').value;
+            const amount = document.getElementById('quickAmount').value;
+            
+            closeModal('quickEntryModal');
+            showDetailedEntry();
+            
+            if (notes) {
+                document.getElementById('billName').value = notes;
+            }
+            if (amount) {
+                document.getElementById('billAmount').value = amount;
+            }
+        }
+
+        function switchToQuick() {
+            closeModal('detailedEntryModal');
+            showQuickEntry();
+        }
+
+        function resetQuickForm() {
+            document.getElementById('quickNotes').value = '';
+            document.getElementById('quickAmount').value = '';
+        }
+
+        function resetDetailedForm() {
+            document.getElementById('billName').value = '';
+            document.getElementById('billAmount').value = '';
+            document.getElementById('billCategory').value = '';
+            document.getElementById('billFrequency').value = '';
+            document.getElementById('dueDay').value = '';
+            document.getElementById('firstDueDate').value = '';
+            document.getElementById('sourceAccount').value = '';
+            document.getElementById('subAccount').value = '';
+            document.getElementById('websiteUrl').value = '';
+            
+            // Reset checkboxes
+            document.getElementById('isRecurring').checked = false;
+            document.getElementById('cancelReminder').checked = false;
+            
+            // Hide conditional sections
+            document.getElementById('subAccountSection').style.display = 'none';
+            document.getElementById('cancelReminderSection').style.display = 'none';
+            document.getElementById('reminderOptions').style.display = 'none';
+            document.getElementById('accountBalance').style.display = 'none';
+            
+            // Reset payment toggle
+            const toggle = document.getElementById('paymentToggle');
+            toggle.classList.remove('active');
+        }
+
+        // File handling
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                console.log('File selected:', file.name);
+                // Simulate OCR processing
+                setTimeout(() => {
+                    alert('Image uploaded! OCR processing would extract bill details here.');
+                }, 500);
+            }
+        }
+
+        function handleDragOver(event) {
+            event.preventDefault();
+            event.currentTarget.classList.add('dragover');
+        }
+
+        function handleDrop(event) {
+            event.preventDefault();
+            event.currentTarget.classList.remove('dragover');
+            
+            const files = event.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelect({ target: { files: files } });
+            }
+        }
+
+        // Account management functions
+        function updateSubAccounts() {
+            const selectedAccount = document.getElementById('sourceAccount').value;
+            const subAccountSection = document.getElementById('subAccountSection');
+            const subAccountSelect = document.getElementById('subAccount');
+            const balanceDiv = document.getElementById('accountBalance');
+            
+            if (selectedAccount && accountConfigs[selectedAccount]) {
+                subAccountSection.style.display = 'block';
+                
+                // Clear and populate sub accounts
+                subAccountSelect.innerHTML = '<option value="">Select sub account</option>';
+                accountConfigs[selectedAccount].subAccounts.forEach(subAccount => {
+                    const option = document.createElement('option');
+                    option.value = subAccount.id;
+                    option.textContent = subAccount.name;
+                    subAccountSelect.appendChild(option);
+                });
+                
+                // Add change listener to show balance
+                subAccountSelect.onchange = function() {
+                    const selectedSubAccount = this.value;
+                    if (selectedSubAccount) {
+                        const subAccount = accountConfigs[selectedAccount].subAccounts.find(acc => acc.id === selectedSubAccount);
+                        if (subAccount) {
+                            balanceDiv.innerHTML = `💰 Available: ${subAccount.balance.toFixed(2)}`;
+                            balanceDiv.style.display = 'block';
+                        }
+                    } else {
+                        balanceDiv.style.display = 'none';
+                    }
+                };
+            } else {
+                subAccountSection.style.display = 'none';
+                balanceDiv.style.display = 'none';
+            }
+        }
+
+        function toggleRecurringOptions() {
+            const isRecurring = document.getElementById('isRecurring').checked;
+            const cancelReminderSection = document.getElementById('cancelReminderSection');
+            
+            cancelReminderSection.style.display = isRecurring ? 'block' : 'none';
+            
+            // Add change listener for cancel reminder checkbox
+            document.getElementById('cancelReminder').onchange = function() {
+                const reminderOptions = document.getElementById('reminderOptions');
+                reminderOptions.style.display = this.checked ? 'block' : 'none';
+            };
+        }
+
+        // Resume bill functions
+        function selectResumeOption(option, element) {
+            currentResumeOption = option;
+            
+            // Update UI
+            document.querySelectorAll('.option-card').forEach(card => card.classList.remove('selected'));
+            element.classList.add('selected');
+            
+            // Show/hide date input for new-date option
+            const dateInput = document.getElementById('newDateInput');
+            dateInput.style.display = option === 'new-date' ? 'flex' : 'none';
+            
+            // Enable confirm button
+            document.getElementById('confirmResumeBtn').disabled = false;
+        }
+
+        function showResumeModal(billId) {
+            currentResumeBillId = billId;
+            currentResumeOption = null;
+            
+            // Reset modal state
+            document.querySelectorAll('.option-card').forEach(card => card.classList.remove('selected'));
+            document.getElementById('newDateInput').style.display = 'none';
+            document.getElementById('confirmResumeBtn').disabled = true;
+            
+            // Set default date to today
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('resumeDate').value = today;
+            
+            document.getElementById('resumeBillModal').classList.add('show');
+        }
+
+        function confirmResumeBill() {
+            if (!currentResumeOption || !currentResumeBillId) return;
+            
+            const bill = bills.find(b => b.id === currentResumeBillId);
+            if (!bill) return;
+            
+            switch (currentResumeOption) {
+                case 'same':
+                    // Resume with existing settings
+                    bill.status = 'active';
+                    updateBillInDOM(bill);
+                    alert('Bill resumed with same settings!');
+                    break;
+                    
+                case 'update':
+                    // Open detailed edit form
+                    closeModal('resumeBillModal');
+                    editBill(currentResumeBillId);
+                    return;
+                    
+                case 'new-date':
+                    // Resume with new date
+                    const newDate = document.getElementById('resumeDate').value;
+                    if (newDate) {
+                        bill.status = 'active';
+                        bill.dueDate = newDate;
+                        updateBillInDOM(bill);
+                        alert(`Bill resumed with new start date: ${newDate}`);
+                    } else {
+                        alert('Please select a new start date');
+                        return;
+                    }
+                    break;
+            }
+            
+            closeModal('resumeBillModal');
+            updateStats();
+        }
+
+        function updateBillInDOM(bill) {
+            // Find and update the bill element in the DOM
+            const billItems = document.querySelectorAll('.bill-item');
+            billItems.forEach(item => {
+                const billName = item.querySelector('.bill-name').textContent;
+                if (billName === bill.name) {
+                    item.dataset.status = bill.status;
+                    const statusElement = item.querySelector('.bill-status');
+                    statusElement.textContent = bill.status === 'active' ? 'Active' : 'Paused';
+                    statusElement.className = `bill-status status-${bill.status}`;
+                    
+                    // Update due date if changed
+                    const dueDateElement = item.querySelector('.due-in');
+                    if (dueDateElement && bill.dueDate) {
+                        dueDateElement.textContent = bill.dueDate;
+                    }
+                }
+            });
+        }
+
+        // Tab switching
+        function switchTab(tab, element) {
+            currentTab = tab;
+            
+            // Update tab appearance
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+            element.classList.add('active');
+            
+            // Filter bills based on tab
+            filterBillsByTab(tab);
+        }
+
+        function filterBillsByTab(tab) {
+            const billItems = document.querySelectorAll('.bill-item');
+            
+            billItems.forEach(item => {
+                let show = true;
+                
+                if (tab === 'upcoming') {
+                    const dueText = item.querySelector('.due-date').textContent;
+                    show = dueText.includes('7 days') || dueText.includes('17 days');
+                } else if (tab === 'overdue') {
+                    const dueText = item.querySelector('.due-date').textContent;
+                    show = dueText.includes('overdue');
+                }
+                
+                item.style.display = show ? 'flex' : 'none';
+            });
+        }
+
+        // Filter functions
+        function filterBills(searchTerm) {
+            const billItems = document.querySelectorAll('.bill-item');
+            
+            billItems.forEach(item => {
+                const billName = item.querySelector('.bill-name').textContent.toLowerCase();
+                const show = billName.includes(searchTerm.toLowerCase());
+                item.style.display = show ? 'flex' : 'none';
+            });
+        }
+
+        function filterByCategory(category) {
+            const billItems = document.querySelectorAll('.bill-item');
+            
+            billItems.forEach(item => {
+                const show = !category || item.dataset.category === category;
+                item.style.display = show ? 'flex' : 'none';
+            });
+        }
+
+        function filterByStatus(status) {
+            const billItems = document.querySelectorAll('.bill-item');
+            
+            billItems.forEach(item => {
+                const show = !status || item.dataset.status === status;
+                item.style.display = show ? 'flex' : 'none';
+            });
+        }
+
+        // Bill actions
+        function viewBill(billId) {
+            const bill = bills.find(b => b.id === billId);
+            if (bill) {
+                alert(`Viewing ${bill.name}\nAmount: ${bill.amount}\nStatus: ${bill.status}\nDue: ${bill.dueDate}`);
+            }
+        }
+
+        function editBill(billId) {
+            const bill = bills.find(b => b.id === billId);
+            if (bill) {
+                showDetailedEntry();
+                
+                // Populate form with existing data
+                document.getElementById('billName').value = bill.name;
+                document.getElementById('billAmount').value = bill.amount;
+                document.getElementById('billCategory').value = bill.category;
+                document.getElementById('billFrequency').value = bill.frequency;
+                
+                // Set payment method
+                if (bill.paymentMethod === 'auto') {
+                    document.getElementById('paymentToggle').classList.add('active');
+                }
+                
+                // Set account information
+                if (bill.account) {
+                    document.getElementById('sourceAccount').value = bill.account;
+                    updateSubAccounts();
+                    
+                    // Set sub account after a brief delay to ensure options are loaded
+                    setTimeout(() => {
+                        if (bill.subAccount) {
+                            document.getElementById('subAccount').value = bill.subAccount;
+                            // Trigger balance display
+                            document.getElementById('subAccount').onchange();
+                        }
+                    }, 100);
+                }
+                
+                // Set recurring subscription options
+                if (bill.isRecurring) {
+                    document.getElementById('isRecurring').checked = true;
+                    toggleRecurringOptions();
+                    
+                    if (bill.cancelReminder) {
+                        document.getElementById('cancelReminder').checked = true;
+                        document.getElementById('reminderOptions').style.display = 'block';
+                        
+                        if (bill.reminderTiming) {
+                            document.getElementById('reminderTiming').value = bill.reminderTiming;
+                        }
+                    }
+                }
+            }
+        }
+
+        function deleteBill(billId) {
+            if (confirm('Are you sure you want to delete this bill?')) {
+                const billIndex = bills.findIndex(b => b.id === billId);
+                if (billIndex > -1) {
+                    bills.splice(billIndex, 1);
+                    // Remove from DOM
+                    const billElement = document.querySelector(`[data-bill-id="${billId}"]`);
+                    if (billElement) {
+                        billElement.remove();
+                    }
+                    alert('Bill deleted successfully!');
+                    updateStats();
+                }
+            }
+        }
+
+        function resumeBill(billId) {
+            showResumeModal(billId);
+        }
+
+        function pauseBill(billId) {
+            const bill = bills.find(b => b.id === billId);
+            if (bill) {
+                bill.status = 'paused';
+                alert('Bill paused successfully!');
+                updateStats();
+            }
+        }
+
+        // Save functions
+        function saveQuickEntry() {
+            const notes = document.getElementById('quickNotes').value;
+            const amount = document.getElementById('quickAmount').value;
+            
+            if (!notes && !amount) {
+                alert('Please add at least some notes or an amount.');
+                return;
+            }
+            
+            // Simulate saving to "To Process" list
+            alert('Quick entry saved to process later!');
+            closeModal('quickEntryModal');
+            resetQuickForm();
+        }
+
+        function saveBill() {
+            const name = document.getElementById('billName').value;
+            const amount = document.getElementById('billAmount').value;
+            
+            if (!name || !amount) {
+                alert('Please fill in the required fields (Bill Name and Amount).');
+                return;
+            }
+            
+            const newBill = {
+                id: Date.now().toString(),
+                name: name,
+                amount: parseFloat(amount),
+                category: document.getElementById('billCategory').value,
+                frequency: document.getElementById('billFrequency').value,
+                status: 'active',
+                paymentMethod: document.getElementById('paymentToggle').classList.contains('active') ? 'auto' : 'manual',
+                account: document.getElementById('sourceAccount').value,
+                subAccount: document.getElementById('subAccount').value,
+                isRecurring: document.getElementById('isRecurring').checked,
+                cancelReminder: document.getElementById('cancelReminder').checked,
+                reminderTiming: document.getElementById('reminderTiming').value,
+                dueDate: document.getElementById('firstDueDate').value || '2025-02-01'
+            };
+            
+            bills.push(newBill);
+            
+            // Show confirmation with account details
+            let confirmationMessage = 'Bill saved successfully!\n\n';
+            confirmationMessage += `💳 Payment: ${newBill.paymentMethod === 'auto' ? 'Direct Debit' : 'Manual'}\n`;
+            
+            if (newBill.account && newBill.subAccount) {
+                const accountConfig = accountConfigs[newBill.account];
+                const subAccount = accountConfig.subAccounts.find(acc => acc.id === newBill.subAccount);
+                confirmationMessage += `🏦 Account: ${accountConfig.name} - ${subAccount.name}\n`;
+            }
+            
+            if (newBill.isRecurring) {
+                confirmationMessage += `🔄 Recurring subscription`;
+                if (newBill.cancelReminder) {
+                    confirmationMessage += ` (reminder set for ${newBill.reminderTiming} days before renewal)`;
+                }
+            }
+            
+            alert(confirmationMessage);
+            closeModal('detailedEntryModal');
+            resetDetailedForm();
+            updateStats();
+        }
+
+        // Utility functions
+        function updateStats() {
+            // Recalculate stats based on current bills
+            const activeBills = bills.filter(b => b.status === 'active');
+            const totalAmount = activeBills.reduce((sum, bill) => sum + bill.amount, 0);
+            
+            // Update DOM elements
+            document.querySelector('.stat-card.total .stat-value').textContent = `${totalAmount.toFixed(2)}`;
+            document.querySelector('.stat-card.active .stat-value').textContent = activeBills.length;
+        }
+
+        function showDashboard() {
+            // Navigate back to main dashboard (placeholder)
+            alert('Navigate to main dashboard');
+        }
+
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Bill Management App initialized');
+            
+            // Make functions globally available
+            window.showQuickEntry = showQuickEntry;
+            window.showDetailedEntry = showDetailedEntry;
+            window.closeModal = closeModal;
+            window.switchToDetailed = switchToDetailed;
+            window.switchToQuick = switchToQuick;
+            window.handleFileSelect = handleFileSelect;
+            window.handleDragOver = handleDragOver;
+            window.handleDrop = handleDrop;
+            window.togglePayment = togglePayment;
+            window.switchTab = switchTab;
+            window.filterBills = filterBills;
+            window.filterByCategory = filterByCategory;
+            window.filterByStatus = filterByStatus;
+            window.viewBill = viewBill;
+            window.editBill = editBill;
+            window.deleteBill = deleteBill;
+            window.resumeBill = resumeBill;
+            window.pauseBill = pauseBill;
+            window.saveQuickEntry = saveQuickEntry;
+            window.saveBill = saveBill;
+            window.showDashboard = showDashboard;
+            window.updateSubAccounts = updateSubAccounts;
+            window.toggleRecurringOptions = toggleRecurringOptions;
+            window.selectResumeOption = selectResumeOption;
+            window.confirmResumeBill = confirmResumeBill;
+            
+            // Set today's date as default for first due date
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('firstDueDate').value = today;
+            
+            // Close modals when clicking outside
+            document.addEventListener('click', function(event) {
+                if (event.target.classList.contains('modal-overlay')) {
+                    event.target.classList.remove('show');
+                }
+            });
+            
+            // Prevent modal close when clicking inside modal
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.addEventListener('click', function(event) {
+                    event.stopPropagation();
+                });
+            });
+            
+            // ESC key to close modals
+            document.addEventListener('keydown', function(event) {
+                if (event.key === 'Escape') {
+                    document.querySelectorAll('.modal-overlay.show').forEach(modal => {
+                        modal.classList.remove('show');
+                    });
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+                        
