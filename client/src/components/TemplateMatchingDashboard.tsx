@@ -5,9 +5,11 @@ import { NavigationTabs } from "./NavigationTabs";
 import { UnifiedMortgageSection } from "./UnifiedMortgageSection";
 import { CompactMortgageSection } from "./CompactMortgageSection";
 import { EnhancedBillsManagementHub } from "./EnhancedBillsManagementHub";
+import { BillManagementAdvanced } from "./BillManagementAdvanced";
 import { UpcomingBillsSection } from "./UpcomingBillsSection";
 import { AutoTagDashboard } from "./AutoTagDashboard";
 import { PropertyManagementDashboard } from "./PropertyManagementDashboard";
+import { SettingsDashboard } from "./SettingsDashboard";
 import { Settings, Plus } from "lucide-react";
 
 export function TemplateMatchingDashboard() {
@@ -526,6 +528,12 @@ export function TemplateMatchingDashboard() {
           </div>
         )}
 
+        {activeTab === 'bills-advanced' && (
+          <div className="space-y-6">
+            <BillManagementAdvanced />
+          </div>
+        )}
+
         {activeTab === 'auto-tag' && (
           <div className="space-y-6">
             <AutoTagDashboard />
@@ -535,6 +543,12 @@ export function TemplateMatchingDashboard() {
         {activeTab === 'property' && (
           <div className="space-y-6">
             <PropertyManagementDashboard />
+          </div>
+        )}
+
+        {activeTab === 'settings' && (
+          <div className="space-y-6">
+            <SettingsDashboard />
           </div>
         )}
 

@@ -7,7 +7,8 @@ import {
   FileText,
   Home,
   Zap,
-  Tags
+  Tags,
+  Settings
 } from "lucide-react";
 
 interface NavigationTabsProps {
@@ -36,6 +37,12 @@ export function NavigationTabs({ activeTab, onTabChange }: NavigationTabsProps) 
       description: 'Bill management and tracking'
     },
     {
+      id: 'bills-advanced',
+      label: 'Bills Advanced',
+      icon: FileText,
+      description: 'Advanced bill management with automation'
+    },
+    {
       id: 'mortgage',
       label: 'Mortgage',
       icon: Home,
@@ -58,6 +65,12 @@ export function NavigationTabs({ activeTab, onTabChange }: NavigationTabsProps) 
       label: 'Property',
       icon: Home,
       description: 'Property management dashboard'
+    },
+    {
+      id: 'settings',
+      label: 'Settings',
+      icon: Settings,
+      description: 'API configuration and system settings'
     }
   ];
 
