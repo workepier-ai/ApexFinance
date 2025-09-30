@@ -10,6 +10,7 @@ import { UpcomingBillsSection } from "./UpcomingBillsSection";
 import { AutoTagDashboard } from "./AutoTagDashboard";
 import { PropertyManagementDashboard } from "./PropertyManagementDashboard";
 import { SettingsDashboard } from "./SettingsDashboard";
+import { TransactionsDashboard } from "./TransactionsDashboard";
 import { Settings, Plus } from "lucide-react";
 
 export function TemplateMatchingDashboard() {
@@ -552,8 +553,14 @@ export function TemplateMatchingDashboard() {
           </div>
         )}
 
+        {activeTab === 'transactions' && (
+          <div className="space-y-6">
+            <TransactionsDashboard />
+          </div>
+        )}
+
         {/* Other tabs content can be added here */}
-        {['transactions', 'subscriptions'].includes(activeTab) && (
+        {['subscriptions'].includes(activeTab) && (
           <Card className="p-12 bg-white/70 backdrop-blur-sm border-gray-200">
             <div className="text-center">
               <h3 className="text-xl font-semibold text-gray-900 mb-2">

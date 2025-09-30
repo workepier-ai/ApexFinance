@@ -14,6 +14,7 @@ import { eq, desc, and, gte, lte } from "drizzle-orm";
 import multer from 'multer';
 import path from 'path';
 import crypto from 'crypto';
+import { UpBankApiClient } from './UpBankApiClient';
 
 // Configure multer for image uploads
 const upload = multer({
@@ -233,11 +234,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (const setting of settingsArray) {
         switch (setting.key) {
           case 'up_bank_token':
-            // In real app, decrypt the token
-            apiSettings.upBankToken = setting.valueEncrypted ? '***ENCRYPTED***' : '';
+            // Decrypt the token for use
+            apiSettings.upBankToken = setting.valueEncrypted ? decryptToken(setting.valueEncrypted) : '';
             break;
           case 'webhook_secret':
-            apiSettings.webhookSecret = setting.valueEncrypted ? '***ENCRYPTED***' : '';
+            apiSettings.webhookSecret = setting.valueEncrypted ? decryptToken(setting.valueEncrypted) : '';
             break;
           case 'auto_sync':
             apiSettings.autoSync = setting.valueText === 'true';
@@ -406,6 +407,580 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Sync push error:', error);
       res.status(500).json({ error: 'Push sync failed' });
+    }
+  });
+
+  // Transaction endpoints
+  // Smart sync - only fetch new transactions since last sync
+  app.post('/api/transactions/sync', async (req, res) => {
+    try {
+      const userId = 'mock-user-id';
+
+      // Get UP Bank token and last sync time
+      const userSettings = await db.select()
+        .from(settings)
+        .where(eq(settings.userId, userId));
+
+      const settingsMap: any = {};
+      for (const setting of userSettings) {
+        if (setting.key === 'up_bank_token' && setting.valueEncrypted) {
+          settingsMap.upBankToken = decryptToken(setting.valueEncrypted);
+        } else if (setting.key === 'last_transaction_sync' && setting.valueText) {
+          settingsMap.lastSync = setting.valueText;
+        }
+      }
+
+      if (!settingsMap.upBankToken) {
+        return res.status(400).json({ error: 'UP Bank token not configured' });
+      }
+
+      // Initialize UP Bank API client
+      const upBankClient = new UpBankApiClient(settingsMap.upBankToken);
+
+      // Fetch accounts to build account names mapping
+      const accountsResponse = await upBankClient.getAccounts();
+      const accountsMap = new Map<string, { name: string; type: string }>();
+
+      for (const acc of accountsResponse.data) {
+        const accountType = acc.attributes.accountType;
+        let emoji = '🏦'; // default
+
+        if (accountType === 'SAVER') {
+          emoji = '💰';
+        } else if (accountType === 'TRANSACTIONAL') {
+          emoji = '🏦';
+        }
+
+        accountsMap.set(acc.id, {
+          name: `Up-${emoji} ${acc.attributes.displayName}`,
+          type: accountType
+        });
+      }
+
+      // Fetch transactions with pagination
+      let allNewTransactions: any[] = [];
+      let nextPageUrl: string | null = null;
+      let newCount = 0;
+      let updatedCount = 0;
+
+      do {
+        const response = await upBankClient.getTransactions({
+          pageSize: 100,
+          since: settingsMap.lastSync // Only fetch new transactions
+        });
+
+        for (const txn of response.data) {
+          try {
+            // Skip if transaction doesn't have required fields
+            if (!txn.attributes || !txn.attributes.amount) {
+              console.warn('Skipping transaction with missing attributes:', txn.id);
+              continue;
+            }
+
+            // Check if transaction already exists
+            const existing = await db.select()
+              .from(transactions)
+              .where(eq(transactions.upTransactionId, txn.id))
+              .limit(1);
+
+            const accountId = txn.relationships?.account?.data?.id || null;
+            const accountInfo = accountId ? accountsMap.get(accountId) : null;
+
+            const transactionData = {
+              upTransactionId: txn.id,
+              accountId: accountId,
+              amount: txn.attributes.amount.valueInBaseUnits / 100,
+              date: new Date(txn.attributes.createdAt),
+              description: txn.attributes.rawText || txn.attributes.description || 'No description',
+              category: txn.relationships?.category?.data?.id || 'uncategorized',
+              tags: txn.relationships?.tags?.data?.map((t: any) => t.id).join(',') || '',
+              type: txn.attributes.amount.valueInBaseUnits > 0 ? 'credit' : 'debit',
+              status: txn.attributes.status || 'SETTLED',
+              rawData: txn,
+              syncStatus: 'synced',
+              source: 'up_bank',
+              account: accountInfo?.name || 'UP Bank',
+              updatedAt: new Date()
+            };
+
+            if (existing.length > 0) {
+              // Update existing
+              await db.update(transactions)
+                .set(transactionData)
+                .where(eq(transactions.upTransactionId, txn.id));
+              updatedCount++;
+            } else {
+              // Insert new
+              await db.insert(transactions).values({
+                ...transactionData,
+                createdAt: new Date()
+              });
+              newCount++;
+            }
+          } catch (txnError) {
+            console.error('Error processing transaction:', txn.id, txnError);
+            // Continue with next transaction
+          }
+        }
+
+        allNewTransactions.push(...response.data);
+        nextPageUrl = response.links?.next || null;
+
+        // Safety: don't fetch more than 500 transactions in one sync
+        if (allNewTransactions.length >= 500) break;
+      } while (nextPageUrl);
+
+      // Update last sync timestamp
+      const now = new Date().toISOString();
+      const lastSyncSetting = await db.select()
+        .from(settings)
+        .where(and(
+          eq(settings.userId, userId),
+          eq(settings.key, 'last_transaction_sync')
+        ))
+        .limit(1);
+
+      if (lastSyncSetting.length > 0) {
+        await db.update(settings)
+          .set({ valueText: now, updatedAt: new Date() })
+          .where(and(
+            eq(settings.userId, userId),
+            eq(settings.key, 'last_transaction_sync')
+          ));
+      } else {
+        await db.insert(settings).values({
+          userId,
+          key: 'last_transaction_sync',
+          valueText: now,
+          valueEncrypted: null,
+          updatedAt: new Date()
+        });
+      }
+
+      res.json({
+        success: true,
+        data: {
+          newTransactions: newCount,
+          updatedTransactions: updatedCount,
+          totalFetched: allNewTransactions.length,
+          lastSync: now
+        },
+        message: `Synced ${newCount} new and ${updatedCount} updated transactions`
+      });
+    } catch (error) {
+      console.error('Transaction sync error:', error);
+      res.status(500).json({
+        error: 'Sync failed',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Get transactions with filters
+  app.get('/api/transactions', async (req, res) => {
+    try {
+      const {
+        dateFrom,
+        dateTo,
+        amountMin,
+        amountMax,
+        merchant,
+        category,
+        tags,
+        account,
+        limit = 50,
+        offset = 0
+      } = req.query;
+
+      let query = db.select().from(transactions);
+
+      // Apply filters
+      const conditions: any[] = [];
+
+      if (dateFrom) {
+        conditions.push(gte(transactions.date, new Date(dateFrom as string)));
+      }
+      if (dateTo) {
+        conditions.push(lte(transactions.date, new Date(dateTo as string)));
+      }
+
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions)) as any;
+      }
+
+      const results = await query
+        .orderBy(desc(transactions.date))
+        .limit(Number(limit))
+        .offset(Number(offset));
+
+      // Apply client-side filters for text-based searches
+      let filtered = results;
+
+      if (merchant) {
+        const searchTerm = (merchant as string).toLowerCase();
+        filtered = filtered.filter(t =>
+          t.description.toLowerCase().includes(searchTerm)
+        );
+      }
+
+      if (category) {
+        filtered = filtered.filter(t => t.category === category);
+      }
+
+      if (tags) {
+        const tagArray = (tags as string).split(',');
+        filtered = filtered.filter(t =>
+          tagArray.some(tag => t.tags?.includes(tag))
+        );
+      }
+
+      if (account) {
+        filtered = filtered.filter(t => t.account === account);
+      }
+
+      if (amountMin !== undefined) {
+        filtered = filtered.filter(t => Number(t.amount) >= Number(amountMin));
+      }
+
+      if (amountMax !== undefined) {
+        filtered = filtered.filter(t => Number(t.amount) <= Number(amountMax));
+      }
+
+      res.json({
+        success: true,
+        data: filtered,
+        total: filtered.length
+      });
+    } catch (error) {
+      console.error('Get transactions error:', error);
+      res.status(500).json({ error: 'Failed to fetch transactions' });
+    }
+  });
+
+  // Create manual transaction
+  app.post('/api/transactions', async (req, res) => {
+    try {
+      const {
+        amount,
+        date,
+        description,
+        category,
+        tags,
+        account,
+        notes
+      } = req.body;
+
+      const newTransaction = await db.insert(transactions).values({
+        amount: String(amount),
+        date: new Date(date),
+        description: description || 'Manual transaction',
+        category: category || 'uncategorized',
+        tags: tags || '',
+        type: amount > 0 ? 'credit' : 'debit',
+        status: 'SETTLED',
+        source: 'manual',
+        account: account || 'Manual',
+        syncStatus: 'synced',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }).returning();
+
+      res.json({
+        success: true,
+        data: newTransaction[0],
+        message: 'Transaction created successfully'
+      });
+    } catch (error) {
+      console.error('Create transaction error:', error);
+      res.status(500).json({ error: 'Failed to create transaction' });
+    }
+  });
+
+  // Update transaction (tags/category)
+  app.put('/api/transactions/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { category, tags } = req.body;
+      const userId = 'mock-user-id';
+
+      // Get the transaction to check if it's from UP Bank
+      const existingTxn = await db.select()
+        .from(transactions)
+        .where(eq(transactions.id, id))
+        .limit(1);
+
+      if (existingTxn.length === 0) {
+        return res.status(404).json({ error: 'Transaction not found' });
+      }
+
+      const transaction = existingTxn[0];
+      const updateData: any = {
+        updatedAt: new Date()
+      };
+
+      if (category !== undefined) updateData.category = category;
+      if (tags !== undefined) updateData.tags = tags;
+
+      // Update local database
+      const updated = await db.update(transactions)
+        .set(updateData)
+        .where(eq(transactions.id, id))
+        .returning();
+
+      // If this is an UP Bank transaction, sync changes back to UP Bank
+      if (transaction.upTransactionId) {
+        try {
+          // Get UP Bank token
+          const userSettings = await db.select()
+            .from(settings)
+            .where(eq(settings.userId, userId));
+
+          let upBankToken = '';
+          for (const setting of userSettings) {
+            if (setting.key === 'up_bank_token' && setting.valueEncrypted) {
+              upBankToken = decryptToken(setting.valueEncrypted);
+              break;
+            }
+          }
+
+          if (upBankToken) {
+            const upBankClient = new UpBankApiClient(upBankToken);
+
+            // Sync category change to UP Bank
+            if (category !== undefined && category !== 'uncategorized') {
+              // Validate that this is not a parent category
+              const categoriesResponse = await upBankClient.getCategories();
+              const categoryObj = categoriesResponse.data.find((c: any) => c.id === category);
+
+              if (categoryObj?.relationships?.parent?.data === null) {
+                throw new Error(`Cannot assign parent category "${category}". Please select a child category instead.`);
+              }
+
+              await upBankClient.updateTransactionCategory(transaction.upTransactionId, category);
+            }
+
+            // Sync tags change to UP Bank
+            if (tags !== undefined) {
+              const oldTags = transaction.tags ? transaction.tags.split(',').filter(Boolean) : [];
+              const newTags = tags.split(',').filter(Boolean);
+              await upBankClient.updateTransactionTags(transaction.upTransactionId, newTags, oldTags);
+            }
+
+            console.log(`✅ Synced transaction ${id} changes to UP Bank`);
+          }
+        } catch (syncError) {
+          console.error('Failed to sync to UP Bank:', syncError);
+          // Don't fail the request if UP Bank sync fails
+        }
+      }
+
+      res.json({
+        success: true,
+        data: updated[0],
+        message: 'Transaction updated successfully'
+      });
+    } catch (error) {
+      console.error('Update transaction error:', error);
+      res.status(500).json({ error: 'Failed to update transaction' });
+    }
+  });
+
+  // Delete manual transaction
+  app.delete('/api/transactions/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      // Only allow deleting manual transactions
+      const txn = await db.select()
+        .from(transactions)
+        .where(eq(transactions.id, id))
+        .limit(1);
+
+      if (txn.length === 0) {
+        return res.status(404).json({ error: 'Transaction not found' });
+      }
+
+      if (txn[0].source !== 'manual') {
+        return res.status(400).json({
+          error: 'Cannot delete UP Bank transactions. Please delete from UP Bank app.'
+        });
+      }
+
+      await db.delete(transactions).where(eq(transactions.id, id));
+
+      res.json({
+        success: true,
+        message: 'Transaction deleted successfully'
+      });
+    } catch (error) {
+      console.error('Delete transaction error:', error);
+      res.status(500).json({ error: 'Failed to delete transaction' });
+    }
+  });
+
+  // Import CSV transactions
+  app.post('/api/transactions/import-csv', async (req, res) => {
+    try {
+      const { transactions: csvTransactions, mapping } = req.body;
+
+      if (!csvTransactions || !Array.isArray(csvTransactions)) {
+        return res.status(400).json({ error: 'Invalid CSV data' });
+      }
+
+      const imported = [];
+      const errors = [];
+
+      for (const row of csvTransactions) {
+        try {
+          // Map CSV columns to transaction fields
+          const amount = Number(row[mapping.amount] || row.Amount || 0);
+          const date = new Date(row[mapping.date] || row.Date);
+          const description = row[mapping.merchant] || row[mapping.description] || row.Merchant || 'Imported';
+          const category = row[mapping.category] || row.Category || 'uncategorized';
+          const tags = row[mapping.tags] || row.Tags || '';
+          const account = row[mapping.account] || row.Account || 'Imported';
+
+          const newTxn = await db.insert(transactions).values({
+            amount: String(amount),
+            date,
+            description,
+            category,
+            tags,
+            type: amount > 0 ? 'credit' : 'debit',
+            status: 'SETTLED',
+            source: 'import',
+            account,
+            syncStatus: 'synced',
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }).returning();
+
+          imported.push(newTxn[0]);
+        } catch (error) {
+          errors.push({
+            row,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+        }
+      }
+
+      res.json({
+        success: true,
+        data: {
+          imported: imported.length,
+          errors: errors.length,
+          errorDetails: errors
+        },
+        message: `Imported ${imported.length} transactions with ${errors.length} errors`
+      });
+    } catch (error) {
+      console.error('CSV import error:', error);
+      res.status(500).json({ error: 'Failed to import CSV' });
+    }
+  });
+
+  // Get UP Bank categories
+  app.get('/api/up-bank/categories', async (req, res) => {
+    try {
+      const userId = 'mock-user-id';
+
+      // Get UP Bank token
+      const userSettings = await db.select()
+        .from(settings)
+        .where(eq(settings.userId, userId));
+
+      let upBankToken = '';
+      for (const setting of userSettings) {
+        if (setting.key === 'up_bank_token' && setting.valueEncrypted) {
+          upBankToken = decryptToken(setting.valueEncrypted);
+          break;
+        }
+      }
+
+      if (!upBankToken) {
+        return res.status(400).json({ error: 'UP Bank token not configured' });
+      }
+
+      const upBankClient = new UpBankApiClient(upBankToken);
+      const categories = await upBankClient.getCategories();
+
+      res.json({
+        success: true,
+        data: categories.data
+      });
+    } catch (error) {
+      console.error('Get categories error:', error);
+      res.status(500).json({ error: 'Failed to fetch categories' });
+    }
+  });
+
+  // Get UP Bank tags
+  app.get('/api/up-bank/tags', async (req, res) => {
+    try {
+      const userId = 'mock-user-id';
+
+      // Get UP Bank token
+      const userSettings = await db.select()
+        .from(settings)
+        .where(eq(settings.userId, userId));
+
+      let upBankToken = '';
+      for (const setting of userSettings) {
+        if (setting.key === 'up_bank_token' && setting.valueEncrypted) {
+          upBankToken = decryptToken(setting.valueEncrypted);
+          break;
+        }
+      }
+
+      if (!upBankToken) {
+        return res.status(400).json({ error: 'UP Bank token not configured' });
+      }
+
+      const upBankClient = new UpBankApiClient(upBankToken);
+      const tags = await upBankClient.getTags();
+
+      res.json({
+        success: true,
+        data: tags.data
+      });
+    } catch (error) {
+      console.error('Get tags error:', error);
+      res.status(500).json({ error: 'Failed to fetch tags' });
+    }
+  });
+
+  // Get UP Bank accounts
+  app.get('/api/up-bank/accounts', async (req, res) => {
+    try {
+      const userId = 'mock-user-id';
+
+      // Get UP Bank token
+      const userSettings = await db.select()
+        .from(settings)
+        .where(eq(settings.userId, userId));
+
+      let upBankToken = '';
+      for (const setting of userSettings) {
+        if (setting.key === 'up_bank_token' && setting.valueEncrypted) {
+          upBankToken = decryptToken(setting.valueEncrypted);
+          break;
+        }
+      }
+
+      if (!upBankToken) {
+        return res.status(400).json({ error: 'UP Bank token not configured' });
+      }
+
+      const upBankClient = new UpBankApiClient(upBankToken);
+      const accounts = await upBankClient.getAccounts();
+
+      res.json({
+        success: true,
+        data: accounts.data
+      });
+    } catch (error) {
+      console.error('Get accounts error:', error);
+      res.status(500).json({ error: 'Failed to fetch accounts' });
     }
   });
 

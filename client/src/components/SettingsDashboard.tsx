@@ -97,27 +97,53 @@ export function SettingsDashboard({ className = "" }: SettingsDashboardProps) {
     setState(prev => ({ ...prev, loading: true }));
 
     try {
+      // First try to load from localStorage for quick access
+      const cachedToken = localStorage.getItem('upBankToken');
+
       const response = await fetch('/api/settings');
       const result = await response.json();
 
       if (result.success) {
+        // Use server token if available, otherwise fall back to cached
+        const finalToken = result.data.apiSettings.upBankToken || cachedToken || '';
+
         setState(prev => ({
           ...prev,
           apiSettings: {
             ...prev.apiSettings,
-            ...result.data.apiSettings
+            ...result.data.apiSettings,
+            upBankToken: finalToken
           },
           lastSync: result.data.lastSync ? new Date(result.data.lastSync) : undefined,
           loading: false
         }));
+
+        // Cache token in localStorage if we got it from server
+        if (result.data.apiSettings.upBankToken) {
+          localStorage.setItem('upBankToken', result.data.apiSettings.upBankToken);
+        }
       }
     } catch (error) {
       console.error('Failed to load settings:', error);
-      setState(prev => ({
-        ...prev,
-        loading: false,
-        error: 'Failed to load settings'
-      }));
+
+      // Fall back to cached token if server fails
+      const cachedToken = localStorage.getItem('upBankToken');
+      if (cachedToken) {
+        setState(prev => ({
+          ...prev,
+          apiSettings: {
+            ...prev.apiSettings,
+            upBankToken: cachedToken
+          },
+          loading: false
+        }));
+      } else {
+        setState(prev => ({
+          ...prev,
+          loading: false,
+          error: 'Failed to load settings'
+        }));
+      }
     }
   };
 
@@ -145,8 +171,9 @@ export function SettingsDashboard({ className = "" }: SettingsDashboardProps) {
           error: undefined
         }));
 
-        // Test connection if token was provided
+        // Cache token in localStorage
         if (state.apiSettings.upBankToken) {
+          localStorage.setItem('upBankToken', state.apiSettings.upBankToken);
           testConnection();
         }
       } else {

@@ -6,33 +6,45 @@ import * as schema from "@shared/schema";
 neonConfig.webSocketConstructor = ws;
 
 // For development without database, use mock object
+const createPromiseProxy = (value: any) => {
+  const promise = Promise.resolve(value);
+  return new Proxy(promise, {
+    get(target, prop) {
+      if (prop === 'then' || prop === 'catch' || prop === 'finally') {
+        return target[prop].bind(target);
+      }
+      // Return chainable methods
+      return () => createPromiseProxy(value);
+    }
+  });
+};
+
 const mockDb = {
   select: () => ({
     from: () => ({
-      where: () => ({
-        limit: () => Promise.resolve([]),
-        orderBy: () => ({
-          limit: () => ({
-            offset: () => Promise.resolve([])
-          })
-        })
-      }),
+      where: () => createPromiseProxy([]),
       orderBy: () => ({
         limit: () => ({
-          offset: () => Promise.resolve([])
+          offset: () => createPromiseProxy([])
         })
-      })
+      }),
+      limit: () => createPromiseProxy([])
     })
   }),
   insert: () => ({
     values: () => ({
-      returning: () => Promise.resolve([{ id: 'mock-id', createdAt: new Date() }])
+      returning: () => createPromiseProxy([{ id: 'mock-id', createdAt: new Date() }])
     })
   }),
   update: () => ({
     set: () => ({
-      where: () => Promise.resolve({ id: 'mock-id' })
+      where: () => ({
+        returning: () => createPromiseProxy([{ id: 'mock-id' }])
+      })
     })
+  }),
+  delete: () => ({
+    where: () => createPromiseProxy([])
   })
 };
 
