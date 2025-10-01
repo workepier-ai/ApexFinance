@@ -14,7 +14,7 @@ import {
   apiUsageTracker,
   deepSyncProgress
 } from "@shared/schema";
-import { eq, desc, and, gte, lte } from "drizzle-orm";
+import { eq, desc, and, gte, lte, like, ilike, sql } from "drizzle-orm";
 import multer from 'multer';
 import path from 'path';
 import crypto from 'crypto';
@@ -820,21 +820,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
         category,
         tags,
         account,
-        limit = 50,
+        limit = 1000,
         offset = 0
       } = req.query;
 
-      let query = db.select().from(transactions);
-
-      // Apply filters
+      // Build SQL WHERE conditions for ALL filters
       const conditions: any[] = [];
 
+      // Date filters
       if (dateFrom) {
         conditions.push(gte(transactions.date, new Date(dateFrom as string)));
       }
       if (dateTo) {
         conditions.push(lte(transactions.date, new Date(dateTo as string)));
       }
+
+      // Amount filters (moved to SQL)
+      if (amountMin !== undefined) {
+        conditions.push(gte(transactions.amount, String(amountMin)));
+      }
+      if (amountMax !== undefined) {
+        conditions.push(lte(transactions.amount, String(amountMax)));
+      }
+
+      // Merchant/description search (case-insensitive SQL LIKE)
+      if (merchant) {
+        conditions.push(ilike(transactions.description, `%${merchant}%`));
+      }
+
+      // Category filter (exact match)
+      if (category) {
+        conditions.push(eq(transactions.category, category as string));
+      }
+
+      // Tags filter (check if tags column contains the tag)
+      if (tags) {
+        const tagArray = (tags as string).split(',');
+        // For multiple tags, check if ANY tag matches (OR condition)
+        const tagConditions = tagArray.map(tag =>
+          ilike(transactions.tags, `%${tag.trim()}%`)
+        );
+        if (tagConditions.length === 1) {
+          conditions.push(tagConditions[0]);
+        } else if (tagConditions.length > 1) {
+          conditions.push(sql`(${sql.join(tagConditions, sql` OR `)})`);
+        }
+      }
+
+      // Account filter (exact match)
+      if (account) {
+        conditions.push(eq(transactions.account, account as string));
+      }
+
+      // Build and execute query with all SQL filters
+      let query = db.select().from(transactions);
 
       if (conditions.length > 0) {
         query = query.where(and(...conditions)) as any;
@@ -845,43 +884,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .limit(Number(limit))
         .offset(Number(offset));
 
-      // Apply client-side filters for text-based searches
-      let filtered = results;
-
-      if (merchant) {
-        const searchTerm = (merchant as string).toLowerCase();
-        filtered = filtered.filter(t =>
-          t.description.toLowerCase().includes(searchTerm)
-        );
-      }
-
-      if (category) {
-        filtered = filtered.filter(t => t.category === category);
-      }
-
-      if (tags) {
-        const tagArray = (tags as string).split(',');
-        filtered = filtered.filter(t =>
-          tagArray.some(tag => t.tags?.includes(tag))
-        );
-      }
-
-      if (account) {
-        filtered = filtered.filter(t => t.account === account);
-      }
-
-      if (amountMin !== undefined) {
-        filtered = filtered.filter(t => Number(t.amount) >= Number(amountMin));
-      }
-
-      if (amountMax !== undefined) {
-        filtered = filtered.filter(t => Number(t.amount) <= Number(amountMax));
-      }
-
       res.json({
         success: true,
-        data: filtered,
-        total: filtered.length
+        data: results,
+        total: results.length
       });
     } catch (error) {
       console.error('Get transactions error:', error);
