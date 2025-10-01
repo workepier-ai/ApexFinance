@@ -1911,6 +1911,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Reset stuck deep sync endpoint
+  app.post('/api/sync/reset', async (req, res) => {
+    try {
+      const userId = 'mock-user-id';
+
+      console.log('🔄 Manual reset of deep sync status');
+
+      // Get current progress
+      const existing = await db.select()
+        .from(deepSyncProgress)
+        .where(eq(deepSyncProgress.userId, userId))
+        .limit(1);
+
+      if (existing.length === 0) {
+        return res.json({
+          success: true,
+          message: 'No deep sync record found'
+        });
+      }
+
+      const current = existing[0];
+      const wasStuck = current.status === 'running' && current.totalSynced === 0;
+
+      // Reset to idle
+      await db
+        .update(deepSyncProgress)
+        .set({
+          status: 'idle',
+          error: wasStuck ? 'Manually reset by user' : null,
+          updatedAt: new Date()
+        })
+        .where(eq(deepSyncProgress.userId, userId));
+
+      console.log(`✅ Deep sync status reset to idle (was: ${current.status})`);
+
+      res.json({
+        success: true,
+        message: 'Deep sync reset successfully',
+        previousStatus: current.status,
+        wasStuck
+      });
+    } catch (error) {
+      console.error('❌ Reset deep sync error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to reset deep sync',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   // Auto-tag rules endpoints
   app.get('/api/autotag/rules', async (req, res) => {
     try {

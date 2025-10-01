@@ -453,8 +453,26 @@ export async function triggerDeepSync(timeRange: string): Promise<void> {
       .limit(1);
 
     if (existing.length > 0 && existing[0].status === 'running') {
-      console.log('⚠️ Deep sync already running, ignoring trigger');
-      return;
+      // Check if sync is stale (running for >10 minutes with no progress)
+      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+      const isStale = existing[0].startedAt &&
+                      existing[0].startedAt < tenMinutesAgo &&
+                      existing[0].totalSynced === 0;
+
+      if (isStale) {
+        console.log('🔄 Detected stale deep sync (started >10min ago, no progress). Auto-resetting...');
+        await db
+          .update(deepSyncProgress)
+          .set({
+            status: 'idle',
+            error: 'Auto-reset: stale sync detected',
+            updatedAt: new Date()
+          })
+          .where(eq(deepSyncProgress.userId, userId));
+      } else {
+        console.log('⚠️ Deep sync already running, ignoring trigger');
+        return;
+      }
     }
 
     // Reset progress to start fresh
