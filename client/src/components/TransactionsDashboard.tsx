@@ -228,6 +228,26 @@ export function TransactionsDashboard() {
       }
     }
 
+    // Quick date filter
+    if (dateFilter !== 'all') {
+      const txnDate = new Date(txn.date);
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+
+      if (dateFilter === 'today') {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (txnDate < today) return false;
+      } else if (dateFilter === 'week') {
+        const weekAgo = new Date(now);
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        if (txnDate < weekAgo) return false;
+      } else if (dateFilter === 'month') {
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        if (txnDate < monthStart) return false;
+      }
+    }
+
     // Date range filter (advanced search)
     if (dateRange.from || dateRange.to) {
       const txnDate = new Date(txn.date);
@@ -243,6 +263,14 @@ export function TransactionsDashboard() {
         to.setHours(23, 59, 59, 999); // End of day
         if (txnDate > to) return false;
       }
+    }
+
+    // Quick amount filter
+    if (amountFilter !== 'all') {
+      const absAmount = Math.abs(txn.amount);
+      if (amountFilter === 'small' && absAmount > 50) return false;
+      if (amountFilter === 'medium' && (absAmount < 50 || absAmount > 200)) return false;
+      if (amountFilter === 'large' && absAmount < 200) return false;
     }
 
     // Exact amount filter (advanced search)
@@ -739,7 +767,7 @@ export function TransactionsDashboard() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-8 w-full justify-between text-xs font-normal"
+                    className="h-8 w-full justify-between text-xs font-normal bg-gray-50 hover:bg-gray-100"
                   >
                     <span className="truncate">
                       {tagFilter.length === 0 ? 'All tags' : `${tagFilter.length} tag(s)`}
