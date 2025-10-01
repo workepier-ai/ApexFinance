@@ -351,6 +351,14 @@ export async function hourlyTransactionChecker(): Promise<void> {
 
         // Save progress
         cursor = response.links?.next?.split('page[after]=')[1]?.split('&')[0] || null;
+        if (!cursor && response.links?.next) {
+          // Try URL-encoded version
+          cursor = response.links.next.split('page%5Bafter%5D=')[1]?.split('&')[0] || null;
+        }
+        // Decode cursor to prevent double-encoding
+        if (cursor) {
+          cursor = decodeURIComponent(cursor);
+        }
         const oldestDate = txns.length > 0 ? new Date(txns[txns.length - 1].attributes.createdAt) : null;
 
         await db
