@@ -3,6 +3,7 @@ export interface Transaction {
   id: string;
   upTransactionId?: string;
   accountId?: string;
+  bankId?: string;
   amount: number;
   date: Date;
   description: string;

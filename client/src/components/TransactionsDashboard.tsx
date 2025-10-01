@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -11,19 +11,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
+import { Calendar } from "./ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "./ui/popover";
 import {
   RefreshCw,
   Plus,
   Upload,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   X,
+  Calendar as CalendarIcon,
 } from "lucide-react";
 import { useTransactions } from "../hooks/useTransactions";
 import type { Transaction } from "../types/AutoTagTypes";
 import { CategoryDropdown } from "./CategoryDropdown";
 import { TagsMultiSelect } from "./TagsMultiSelect";
 import { AccountsSidebar } from "./AccountsSidebar";
+import { TransactionImportModal } from "./TransactionImport/TransactionImportModal";
 
 const ACCOUNT_TYPE_EMOJI: { [key: string]: string } = {
   'Saver': '💰',
@@ -50,6 +59,7 @@ export function TransactionsDashboard() {
     syncFromUpBank,
     updateTransaction,
     importCSV,
+    refreshTransactions,
   } = useTransactions();
 
   const [showManualAdd, setShowManualAdd] = useState(false);
@@ -65,14 +75,38 @@ export function TransactionsDashboard() {
   const [amountFilter, setAmountFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [accountFilter, setAccountFilter] = useState('all');
+  const [tagFilter, setTagFilter] = useState<string[]>([]);
+  const [bankFilter, setBankFilter] = useState<string[]>([]);
+  const [showImportModal, setShowImportModal] = useState(false);
+
+  // Advanced search state
+  const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
+  const [searchFields, setSearchFields] = useState({
+    merchant: true,
+    category: true,
+    tags: true,
+    account: true,
+    amount: true
+  });
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
+    from: undefined,
+    to: undefined
+  });
+  const [amountExact, setAmountExact] = useState('');
+  const [amountRange, setAmountRange] = useState({ min: '', max: '' });
+
+  // Ref for calendar button to enable double-click on date inputs
+  const calendarButtonRef = useRef<HTMLButtonElement>(null);
 
   // UP Bank categories and tags
   const [categories, setCategories] = useState<any[]>([]);
   const [tags, setTags] = useState<any[]>([]);
+  const [banks, setBanks] = useState<any[]>([]);
 
-  // Fetch categories and tags on mount
+  // Fetch categories, tags, and banks on mount
   useEffect(() => {
     fetchCategoriesAndTags();
+    fetchBanks();
   }, []);
 
   const fetchCategoriesAndTags = async () => {
@@ -93,6 +127,18 @@ export function TransactionsDashboard() {
       }
     } catch (err) {
       console.error('Failed to fetch categories/tags:', err);
+    }
+  };
+
+  const fetchBanks = async () => {
+    try {
+      const response = await fetch('/api/banks');
+      const result = await response.json();
+      if (result.success) {
+        setBanks(result.data.filter((b: any) => b.enabled));
+      }
+    } catch (err) {
+      console.error('Failed to fetch banks:', err);
     }
   };
 
@@ -141,25 +187,85 @@ export function TransactionsDashboard() {
 
   // Apply filters
   const filteredTransactions = transactions.filter(txn => {
-    // Global search across multiple fields
+    // Global search with field-specific filtering
     if (searchTerm) {
       const search = searchTerm.toLowerCase();
-      const matchesDescription = txn.description.toLowerCase().includes(search);
-      const matchesAccount = txn.account.toLowerCase().includes(search);
-      const matchesCategory = txn.category?.toLowerCase().includes(search);
-      const matchesTags = txn.tags?.toLowerCase().includes(search);
-      const matchesAmount = txn.amount.toString().includes(search);
+      const matches: boolean[] = [];
 
-      // Find category name for better search
-      const categoryObj = categories.find(c => c.id === txn.category);
-      const matchesCategoryName = categoryObj?.attributes.name.toLowerCase().includes(search);
+      if (searchFields.merchant) {
+        matches.push(txn.description.toLowerCase().includes(search));
+      }
+      if (searchFields.account) {
+        matches.push(txn.account.toLowerCase().includes(search));
+      }
+      if (searchFields.category) {
+        const categoryObj = categories.find(c => c.id === txn.category);
+        matches.push(
+          txn.category?.toLowerCase().includes(search) ||
+          categoryObj?.attributes.name.toLowerCase().includes(search)
+        );
+      }
+      if (searchFields.tags) {
+        matches.push(txn.tags?.toLowerCase().includes(search));
+      }
+      if (searchFields.amount) {
+        matches.push(txn.amount.toString().includes(search));
+      }
 
-      if (!matchesDescription && !matchesAccount && !matchesCategory && !matchesTags && !matchesAmount && !matchesCategoryName) {
+      // If all fields are disabled, search everywhere (fallback)
+      if (!Object.values(searchFields).some(v => v)) {
+        matches.push(
+          txn.description.toLowerCase().includes(search) ||
+          txn.account.toLowerCase().includes(search) ||
+          txn.category?.toLowerCase().includes(search) ||
+          txn.tags?.toLowerCase().includes(search) ||
+          txn.amount.toString().includes(search)
+        );
+      }
+
+      if (!matches.some(m => m)) {
         return false;
       }
     }
 
-    // Additional filters
+    // Date range filter (advanced search)
+    if (dateRange.from || dateRange.to) {
+      const txnDate = new Date(txn.date);
+      txnDate.setHours(0, 0, 0, 0); // Normalize to start of day
+
+      if (dateRange.from) {
+        const from = new Date(dateRange.from);
+        from.setHours(0, 0, 0, 0);
+        if (txnDate < from) return false;
+      }
+      if (dateRange.to) {
+        const to = new Date(dateRange.to);
+        to.setHours(23, 59, 59, 999); // End of day
+        if (txnDate > to) return false;
+      }
+    }
+
+    // Exact amount filter (advanced search)
+    if (amountExact) {
+      const exactValue = parseFloat(amountExact);
+      if (Math.abs(txn.amount) !== exactValue) return false;
+    }
+
+    // Amount range filter (advanced search)
+    if (amountRange.min || amountRange.max) {
+      const absAmount = Math.abs(txn.amount);
+      if (amountRange.min && absAmount < parseFloat(amountRange.min)) return false;
+      if (amountRange.max && absAmount > parseFloat(amountRange.max)) return false;
+    }
+
+    // Tag filter (multi-select)
+    if (tagFilter.length > 0) {
+      const txnTags = txn.tags ? txn.tags.split(',').map(t => t.trim()) : [];
+      const hasAllTags = tagFilter.every(tag => txnTags.includes(tag));
+      if (!hasAllTags) return false;
+    }
+
+    // Category filter
     if (categoryFilter !== 'all' && txn.category !== categoryFilter) {
       return false;
     }
@@ -167,22 +273,25 @@ export function TransactionsDashboard() {
     // Account filter with type support
     if (accountFilter !== 'all') {
       if (accountFilter === 'up-all') {
-        // Show all UP Bank accounts
         if (!txn.account.startsWith('Up-')) {
           return false;
         }
       } else if (accountFilter === 'up-spending') {
-        // Show only spending accounts (with 🏦 emoji)
         if (!txn.account.includes('🏦')) {
           return false;
         }
       } else if (accountFilter === 'up-savers') {
-        // Show only saver accounts (with 💰 emoji)
         if (!txn.account.includes('💰')) {
           return false;
         }
       } else if (txn.account !== accountFilter) {
-        // Exact account match
+        return false;
+      }
+    }
+
+    // Bank filter (multi-select by bank ID)
+    if (bankFilter.length > 0) {
+      if (!txn.bankId || !bankFilter.includes(txn.bankId)) {
         return false;
       }
     }
@@ -199,6 +308,7 @@ export function TransactionsDashboard() {
   const uniqueAccounts = Array.from(new Set(transactions.map(t => t.account)));
 
   return (
+    <>
     <div className="grid grid-cols-3 gap-4">
       {/* Left: Transactions (1/3 width) */}
       <div className="col-span-1 space-y-4">
@@ -216,6 +326,70 @@ export function TransactionsDashboard() {
               </p>
             </div>
             <div className="flex items-center space-x-2">
+              {/* Add Transactions Button */}
+              <Button
+                onClick={() => setShowImportModal(true)}
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs"
+              >
+                <Plus className="w-3 h-3 mr-1" />
+                Add Transactions
+              </Button>
+
+              {/* Banks Filter */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs"
+                  >
+                    {bankFilter.length === 0 ? 'All banks' : `${bankFilter.length} bank(s)`}
+                    <ChevronDown className="w-3 h-3 ml-1" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-0" align="end">
+                  <div className="p-3 space-y-2 max-h-80 overflow-y-auto">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-semibold">Select Banks</span>
+                      {bankFilter.length > 0 && (
+                        <button
+                          onClick={() => setBankFilter([])}
+                          className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                        >
+                          Clear All
+                        </button>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      {banks.map((bank) => (
+                        <label key={bank.id} className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={bankFilter.includes(bank.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setBankFilter([...bankFilter, bank.id]);
+                              } else {
+                                setBankFilter(bankFilter.filter(b => b !== bank.id));
+                              }
+                            }}
+                            className="w-4 h-4 rounded border-gray-300"
+                          />
+                          <span className="text-xs flex-1">{bank.name}</span>
+                        </label>
+                      ))}
+                      {banks.length === 0 && (
+                        <div className="text-center py-4 text-gray-500 text-xs">
+                          No banks configured. Add banks in Settings.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+
               <Button
                 onClick={handleSync}
                 disabled={syncStatus === 'syncing'}
@@ -229,30 +403,284 @@ export function TransactionsDashboard() {
             </div>
           </div>
 
-          {/* Global Search */}
-          <div className="relative">
-            <Input
-              placeholder="🔍 Search by merchant, category, tags, account, or amount..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="h-9 text-xs pr-8"
-            />
-            {searchTerm && (
-              <button
-                onClick={() => setSearchTerm('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
+          {/* Global Search with Advanced Button */}
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Input
+                placeholder="🔍 Search by merchant, category, tags, account, or amount..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="h-9 text-xs pr-8"
+              />
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            <Button
+              onClick={() => setShowAdvancedSearch(!showAdvancedSearch)}
+              variant={showAdvancedSearch ? "default" : "outline"}
+              size="sm"
+              className="h-9 text-xs whitespace-nowrap"
+            >
+              🎯 Advanced
+              <ChevronDown className={`w-3 h-3 ml-1 transition-transform ${showAdvancedSearch ? 'rotate-180' : ''}`} />
+            </Button>
           </div>
         </CardHeader>
       </Card>
 
+      {/* Advanced Search Panel */}
+      {showAdvancedSearch && (
+        <Card className="border-gray-200 bg-gray-50">
+          <CardContent className="p-4 space-y-4">
+            <div className="text-xs font-semibold text-gray-700 mb-2">Advanced Search</div>
+
+            {/* Search In Fields */}
+            <div>
+              <div className="text-xs font-medium text-gray-600 mb-2">Search In:</div>
+              <div className="flex flex-wrap gap-3">
+                {Object.entries(searchFields).map(([field, enabled]) => (
+                  <label key={field} className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={enabled}
+                      onChange={(e) => setSearchFields({...searchFields, [field]: e.target.checked})}
+                      className="w-3.5 h-3.5 rounded border-gray-300"
+                    />
+                    <span className="text-xs capitalize">{field}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Date Range - Hybrid Text + Calendar */}
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xs font-medium text-gray-600">Date Range:</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button ref={calendarButtonRef} variant="outline" size="sm" className="h-6 px-2">
+                      <CalendarIcon className="h-3.5 w-3.5" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <div className="p-2 border-b flex justify-between items-center">
+                      <span className="text-xs font-semibold text-gray-700">Select Range</span>
+                      <button
+                        onClick={() => setDateRange({ from: undefined, to: undefined })}
+                        className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                    <Calendar
+                      mode="range"
+                      selected={dateRange}
+                      onSelect={(range: any) => {
+                        if (range?.from) {
+                          // Normalize to local midnight to avoid timezone shifts
+                          range.from = new Date(range.from.getFullYear(), range.from.getMonth(), range.from.getDate());
+                        }
+                        if (range?.to) {
+                          range.to = new Date(range.to.getFullYear(), range.to.getMonth(), range.to.getDate());
+                        }
+                        setDateRange(range || { from: undefined, to: undefined });
+                      }}
+                      numberOfMonths={2}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div className="flex gap-2 items-center">
+                <div className="flex items-center gap-1 flex-1">
+                  <span className="text-xs text-gray-500 whitespace-nowrap">From:</span>
+                  <Input
+                    type="text"
+                    placeholder="DD/MM/YY"
+                    value={dateRange.from ? dateRange.from.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' }) : ''}
+                    onChange={(e) => {
+                      const input = e.target.value.trim();
+                      if (!input) {
+                        setDateRange({...dateRange, from: undefined});
+                        return;
+                      }
+
+                      // Smart parser: accepts DD/MM/YY, DD-MM-YY, DDMMYY
+                      let cleaned = input.replace(/[\/\-]/g, '');
+                      if (cleaned.length === 6) {
+                        const day = parseInt(cleaned.substring(0, 2), 10);
+                        const month = parseInt(cleaned.substring(2, 4), 10) - 1; // 0-indexed
+                        let year = parseInt(cleaned.substring(4, 6), 10);
+                        year = year < 50 ? 2000 + year : 1900 + year; // 00-49 = 2000s, 50-99 = 1900s
+
+                        const date = new Date(year, month, day);
+                        if (!isNaN(date.getTime())) {
+                          setDateRange({...dateRange, from: date});
+                        }
+                      }
+                    }}
+                    onDoubleClick={() => calendarButtonRef.current?.click()}
+                    className="h-8 text-xs flex-1 cursor-pointer"
+                  />
+                </div>
+                <div className="flex items-center gap-1 flex-1">
+                  <span className="text-xs text-gray-500 whitespace-nowrap">To:</span>
+                  <Input
+                    type="text"
+                    placeholder="DD/MM/YY"
+                    value={dateRange.to ? dateRange.to.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' }) : ''}
+                    onChange={(e) => {
+                      const input = e.target.value.trim();
+                      if (!input) {
+                        setDateRange({...dateRange, to: undefined});
+                        return;
+                      }
+
+                      // Smart parser: accepts DD/MM/YY, DD-MM-YY, DDMMYY
+                      let cleaned = input.replace(/[\/\-]/g, '');
+                      if (cleaned.length === 6) {
+                        const day = parseInt(cleaned.substring(0, 2), 10);
+                        const month = parseInt(cleaned.substring(2, 4), 10) - 1; // 0-indexed
+                        let year = parseInt(cleaned.substring(4, 6), 10);
+                        year = year < 50 ? 2000 + year : 1900 + year; // 00-49 = 2000s, 50-99 = 1900s
+
+                        const date = new Date(year, month, day);
+                        if (!isNaN(date.getTime())) {
+                          setDateRange({...dateRange, to: date});
+                        }
+                      }
+                    }}
+                    onDoubleClick={() => calendarButtonRef.current?.click()}
+                    className="h-8 text-xs flex-1 cursor-pointer"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Amount Filters - Improved Layout */}
+            <div>
+              <div className="text-xs font-medium text-gray-600 mb-2">Amount:</div>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    checked={!!amountExact && !amountRange.min && !amountRange.max}
+                    onChange={() => {
+                      setAmountRange({ min: '', max: '' });
+                    }}
+                    className="w-3.5 h-3.5"
+                  />
+                  <span className="text-xs text-gray-600 w-24 flex-shrink-0">Exact Amount:</span>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={amountExact}
+                    onChange={(e) => {
+                      setAmountExact(e.target.value);
+                      if (e.target.value) {
+                        setAmountRange({ min: '', max: '' });
+                      }
+                    }}
+                    onFocus={() => {
+                      if (amountRange.min || amountRange.max) {
+                        setAmountRange({ min: '', max: '' });
+                      }
+                    }}
+                    className="h-8 text-xs flex-1"
+                    placeholder="$0.00"
+                  />
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    checked={!!(amountRange.min || amountRange.max) && !amountExact}
+                    onChange={() => {
+                      setAmountExact('');
+                    }}
+                    className="w-3.5 h-3.5"
+                  />
+                  <span className="text-xs text-gray-600 w-24 flex-shrink-0">Range:</span>
+                  <div className="flex gap-2 items-center flex-1">
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={amountRange.min}
+                      onChange={(e) => {
+                        setAmountRange({...amountRange, min: e.target.value});
+                        if (e.target.value) {
+                          setAmountExact('');
+                        }
+                      }}
+                      onFocus={() => {
+                        if (amountExact) {
+                          setAmountExact('');
+                        }
+                      }}
+                      className="h-8 text-xs flex-1"
+                      placeholder="Min $"
+                    />
+                    <span className="text-xs text-gray-400">to</span>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={amountRange.max}
+                      onChange={(e) => {
+                        setAmountRange({...amountRange, max: e.target.value});
+                        if (e.target.value) {
+                          setAmountExact('');
+                        }
+                      }}
+                      onFocus={() => {
+                        if (amountExact) {
+                          setAmountExact('');
+                        }
+                      }}
+                      className="h-8 text-xs flex-1"
+                      placeholder="Max $"
+                    />
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            {/* Clear Button */}
+            <div className="flex justify-end gap-2">
+              <Button
+                onClick={() => setShowAdvancedSearch(false)}
+                variant="default"
+                size="sm"
+                className="h-8 text-xs"
+              >
+                Search
+              </Button>
+              <Button
+                onClick={() => {
+                  setSearchFields({ merchant: true, category: true, tags: true, account: true, amount: true });
+                  setDateRange({ from: undefined, to: undefined });
+                  setAmountExact('');
+                  setAmountRange({ min: '', max: '' });
+                }}
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs"
+              >
+                Clear All
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Compact Filters */}
       <Card className="border-gray-200">
         <CardContent className="p-3">
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-5 gap-2">
               <Select value={dateFilter} onValueChange={setDateFilter}>
                 <SelectTrigger className="h-8 text-xs">
                   <SelectValue placeholder="All dates" />
@@ -304,6 +732,56 @@ export function TransactionsDashboard() {
                   ))}
                 </SelectContent>
               </Select>
+
+              {/* Tags Filter - Multi-select with Popover */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 w-full justify-between text-xs font-normal"
+                  >
+                    <span className="truncate">
+                      {tagFilter.length === 0 ? 'All tags' : `${tagFilter.length} tag(s)`}
+                    </span>
+                    <ChevronDown className="w-3 h-3 ml-1 flex-shrink-0" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-0" align="end">
+                  <div className="p-3 space-y-2 max-h-80 overflow-y-auto">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-semibold">Select Tags</span>
+                      {tagFilter.length > 0 && (
+                        <button
+                          onClick={() => setTagFilter([])}
+                          className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                        >
+                          Clear All
+                        </button>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      {tags.filter(tag => !['good-life', 'personal', 'home', 'transport', 'income'].includes(tag.id.toLowerCase())).map(tag => (
+                        <label key={tag.id} className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={tagFilter.includes(tag.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setTagFilter([...tagFilter, tag.id]);
+                              } else {
+                                setTagFilter(tagFilter.filter(t => t !== tag.id));
+                              }
+                            }}
+                            className="w-4 h-4 rounded border-gray-300"
+                          />
+                          <span className="text-xs flex-1">{tag.id}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
         </CardContent>
       </Card>
@@ -478,5 +956,14 @@ export function TransactionsDashboard() {
         <AccountsSidebar />
       </div>
     </div>
+
+    {/* Transaction Import Modal */}
+    <TransactionImportModal
+      open={showImportModal}
+      onClose={() => setShowImportModal(false)}
+      banks={banks}
+      onImportSuccess={refreshTransactions}
+    />
+  </>
   );
 }

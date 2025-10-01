@@ -155,6 +155,83 @@ export class UpBankApiClient {
   }
 
   /**
+   * Get single transaction by ID
+   * @param transactionId - UP Bank transaction ID
+   */
+  async getTransaction(transactionId: string): Promise<UpBankApiResponse<any>> {
+    return this.makeRequest<any>(`/transactions/${transactionId}`);
+  }
+
+  /**
+   * List all webhooks
+   */
+  async listWebhooks(): Promise<UpBankApiResponse<any[]>> {
+    return this.makeRequest<any[]>('/webhooks');
+  }
+
+  /**
+   * Create a new webhook
+   * @param url - The URL to receive webhook events
+   * @param description - Optional description for the webhook
+   */
+  async createWebhook(url: string, description?: string): Promise<UpBankApiResponse<any>> {
+    const body = {
+      data: {
+        attributes: {
+          url: url,
+          description: description || 'ApexFinance webhook for transaction updates'
+        }
+      }
+    };
+
+    return this.makeRequest<any>('/webhooks', {
+      method: 'POST',
+      body: JSON.stringify(body)
+    });
+  }
+
+  /**
+   * Delete a webhook
+   * @param webhookId - The webhook ID to delete
+   */
+  async deleteWebhook(webhookId: string): Promise<void> {
+    await this.makeRequest(`/webhooks/${webhookId}`, {
+      method: 'DELETE'
+    });
+  }
+
+  /**
+   * Ping a webhook to test it
+   * @param webhookId - The webhook ID to ping
+   */
+  async pingWebhook(webhookId: string): Promise<UpBankApiResponse<any>> {
+    return this.makeRequest<any>(`/webhooks/${webhookId}/ping`, {
+      method: 'POST'
+    });
+  }
+
+  /**
+   * Get webhook delivery logs
+   * @param webhookId - The webhook ID to get logs for
+   * @param options - Optional pagination and filtering
+   */
+  async getWebhookLogs(webhookId: string, options: {
+    pageSize?: number;
+    since?: string;
+  } = {}): Promise<UpBankApiResponse<any[]>> {
+    const params = new URLSearchParams();
+
+    if (options.pageSize) {
+      params.append('page[size]', options.pageSize.toString());
+    }
+
+    const queryString = params.toString();
+    const endpoint = `/webhooks/${webhookId}/logs${queryString ? `?${queryString}` : ''}`;
+
+    return this.makeRequest<any[]>(endpoint);
+  }
+
+  /**
    * Update transaction category
    * @param transactionId - UP Bank transaction ID
    * @param categoryId - Category ID (e.g., "groceries", "takeaway")
@@ -243,21 +320,33 @@ export class UpBankApiClient {
    * Update transaction tags (replaces all tags)
    * @param transactionId - UP Bank transaction ID
    * @param newTagIds - New tag IDs
-   * @param oldTagIds - Previous tag IDs
+   * @param oldTagIds - Previous tag IDs from local DB (may be stale)
    */
   async updateTransactionTags(transactionId: string, newTagIds: string[], oldTagIds: string[]): Promise<void> {
-    // Remove tags that are no longer present
-    const tagsToRemove = oldTagIds.filter(id => !newTagIds.includes(id));
-    for (const tagId of tagsToRemove) {
-      await this.removeTransactionTag(transactionId, tagId);
-    }
+    try {
+      // Fetch current tags from UP Bank to avoid duplication
+      const txnResponse = await this.getTransaction(transactionId);
+      const currentUpBankTags = txnResponse.data.relationships?.tags?.data?.map((t: any) => t.id) || [];
 
-    // Add new tags
-    const tagsToAdd = newTagIds.filter(id => !oldTagIds.includes(id));
-    if (tagsToAdd.length > 0) {
-      await this.addTransactionTags(transactionId, tagsToAdd);
-    }
+      console.log(`📋 Current UP Bank tags for ${transactionId}:`, currentUpBankTags);
+      console.log(`📋 Desired new tags:`, newTagIds);
 
-    console.log(`✅ Updated tags for transaction ${transactionId}`);
+      // Remove tags that are no longer wanted (exist in UP Bank but not in newTagIds)
+      const tagsToRemove = currentUpBankTags.filter((id: string) => !newTagIds.includes(id));
+      for (const tagId of tagsToRemove) {
+        await this.removeTransactionTag(transactionId, tagId);
+      }
+
+      // Add new tags (wanted in newTagIds but don't exist in UP Bank)
+      const tagsToAdd = newTagIds.filter(id => !currentUpBankTags.includes(id));
+      if (tagsToAdd.length > 0) {
+        await this.addTransactionTags(transactionId, tagsToAdd);
+      }
+
+      console.log(`✅ Updated tags for transaction ${transactionId}`);
+    } catch (error) {
+      console.error(`❌ Failed to update tags for transaction ${transactionId}:`, error);
+      throw error;
+    }
   }
 }

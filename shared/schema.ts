@@ -38,6 +38,21 @@ export const settings = pgTable("settings", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Bank type enum
+export const bankTypeEnum = pgEnum('bank_type', ['up_bank', 'commbank', 'nab', 'anz', 'westpac', 'other']);
+
+// Banks table for multi-bank configuration
+export const banks = pgTable("banks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  name: text("name").notNull(),
+  bankType: bankTypeEnum("bank_type").default('other'),
+  apiToken: text("api_token"), // Encrypted token
+  enabled: boolean("enabled").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Transaction sync status enum
 export const syncStatusEnum = pgEnum('sync_status', ['pending', 'synced', 'failed', 'conflict']);
 export const transactionSourceEnum = pgEnum('transaction_source', ['up_bank', 'manual', 'transfer', 'import']);
@@ -48,6 +63,7 @@ export const transactions = pgTable("transactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   upTransactionId: varchar("up_transaction_id").unique(), // UP Bank ID for sync
   accountId: varchar("account_id"), // UP Bank account ID
+  bankId: varchar("bank_id").references(() => banks.id), // Reference to banks table
   amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
   date: timestamp("date").notNull(),
   description: text("description").notNull(),
@@ -103,6 +119,18 @@ export const webhookEvents = pgTable("webhook_events", {
   error: text("error"), // Error message if processing failed
 });
 
+// Webhook sync state - tracks last processed webhook for smart sync
+export const webhookSyncState = pgTable("webhook_sync_state", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  webhookId: varchar("webhook_id"), // UP Bank webhook ID
+  lastProcessedWebhookDeliveryId: varchar("last_processed_webhook_delivery_id"),
+  lastProcessedTimestamp: timestamp("last_processed_timestamp"),
+  lastFullSync: timestamp("last_full_sync"), // Last time we did full sync fallback
+  lastSmartSync: timestamp("last_smart_sync"), // Last time we did smart webhook log sync
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Sync queue for retry logic
 export const syncQueueStatusEnum = pgEnum('sync_queue_status', ['pending', 'processing', 'completed', 'failed']);
 
@@ -133,24 +161,30 @@ export const apiLogs = pgTable("api_logs", {
 
 // Insert schemas
 export const insertSettingsSchema = createInsertSchema(settings);
+export const insertBankSchema = createInsertSchema(banks);
 export const insertTransactionSchema = createInsertSchema(transactions);
 export const insertAutotagRuleSchema = createInsertSchema(autotagRules);
 export const insertWebhookEventSchema = createInsertSchema(webhookEvents);
+export const insertWebhookSyncStateSchema = createInsertSchema(webhookSyncState);
 export const insertSyncQueueSchema = createInsertSchema(syncQueue);
 export const insertApiLogSchema = createInsertSchema(apiLogs);
 
 // Select types
 export type Setting = typeof settings.$inferSelect;
+export type Bank = typeof banks.$inferSelect;
 export type Transaction = typeof transactions.$inferSelect;
 export type AutotagRule = typeof autotagRules.$inferSelect;
 export type WebhookEvent = typeof webhookEvents.$inferSelect;
+export type WebhookSyncState = typeof webhookSyncState.$inferSelect;
 export type SyncQueueItem = typeof syncQueue.$inferSelect;
 export type ApiLog = typeof apiLogs.$inferSelect;
 
 // Insert types
 export type InsertSetting = z.infer<typeof insertSettingsSchema>;
+export type InsertBank = z.infer<typeof insertBankSchema>;
 export type InsertTransaction = z.infer<typeof insertTransactionSchema>;
 export type InsertAutotagRule = z.infer<typeof insertAutotagRuleSchema>;
 export type InsertWebhookEvent = z.infer<typeof insertWebhookEventSchema>;
+export type InsertWebhookSyncState = z.infer<typeof insertWebhookSyncStateSchema>;
 export type InsertSyncQueueItem = z.infer<typeof insertSyncQueueSchema>;
 export type InsertApiLog = z.infer<typeof insertApiLogSchema>;

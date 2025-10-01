@@ -52,7 +52,7 @@ export function useTransactions(): UseTransactionsResult {
       if (filterParams.category) params.append('category', filterParams.category);
       if (filterParams.tags) params.append('tags', filterParams.tags);
       if (filterParams.account) params.append('account', filterParams.account);
-      params.append('limit', '100');
+      params.append('limit', '1000'); // Increased from 100 to support larger transaction sets
 
       const response = await fetch(`/api/transactions?${params.toString()}`);
       const result = await response.json();
@@ -246,9 +246,18 @@ export function useTransactions(): UseTransactionsResult {
     await fetchTransactions(filters);
   };
 
-  // Load transactions on mount
+  // Load transactions on mount and do background sync
   useEffect(() => {
+    // 1. Show local data immediately (instant)
     fetchTransactions();
+
+    // 2. Background: smart sync to catch missed webhooks
+    setTimeout(() => {
+      syncFromUpBank().catch(err => {
+        console.warn('Background sync failed:', err);
+        // Don't show error to user for background sync
+      });
+    }, 100);
   }, []);
 
   // Reload when filters change

@@ -4,9 +4,11 @@ import { storage } from "./storage";
 import { db } from "./db";
 import {
   settings,
+  banks,
   transactions,
   autotagRules,
   webhookEvents,
+  webhookSyncState,
   syncQueue,
   apiLogs
 } from "@shared/schema";
@@ -359,6 +361,111 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Banks API endpoints
+  app.get('/api/banks', async (req, res) => {
+    try {
+      const userId = 'mock-user-id';
+      const userBanks = await db.select()
+        .from(banks)
+        .where(eq(banks.userId, userId))
+        .orderBy(desc(banks.createdAt));
+
+      res.json({
+        success: true,
+        data: userBanks
+      });
+    } catch (error) {
+      console.error('Failed to fetch banks:', error);
+      res.status(500).json({ error: 'Failed to fetch banks' });
+    }
+  });
+
+  app.post('/api/banks', async (req, res) => {
+    try {
+      const userId = 'mock-user-id';
+      const { name, bankType, apiToken, enabled } = req.body;
+
+      if (!name) {
+        return res.status(400).json({ error: 'Bank name is required' });
+      }
+
+      const newBank = await db.insert(banks).values({
+        userId,
+        name,
+        bankType: bankType || 'other',
+        apiToken: apiToken ? encryptToken(apiToken) : null,
+        enabled: enabled !== undefined ? enabled : true,
+      }).returning();
+
+      res.json({
+        success: true,
+        data: newBank[0]
+      });
+    } catch (error) {
+      console.error('Failed to create bank:', error);
+      res.status(500).json({ error: 'Failed to create bank' });
+    }
+  });
+
+  app.put('/api/banks/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { name, bankType, apiToken, enabled } = req.body;
+      const userId = 'mock-user-id';
+
+      const updateData: any = {
+        updatedAt: new Date()
+      };
+
+      if (name !== undefined) updateData.name = name;
+      if (bankType !== undefined) updateData.bankType = bankType;
+      if (apiToken !== undefined && apiToken !== '***ENCRYPTED***') {
+        updateData.apiToken = encryptToken(apiToken);
+      }
+      if (enabled !== undefined) updateData.enabled = enabled;
+
+      const updated = await db.update(banks)
+        .set(updateData)
+        .where(and(eq(banks.id, id), eq(banks.userId, userId)))
+        .returning();
+
+      if (updated.length === 0) {
+        return res.status(404).json({ error: 'Bank not found' });
+      }
+
+      res.json({
+        success: true,
+        data: updated[0]
+      });
+    } catch (error) {
+      console.error('Failed to update bank:', error);
+      res.status(500).json({ error: 'Failed to update bank' });
+    }
+  });
+
+  app.delete('/api/banks/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = 'mock-user-id';
+
+      const deleted = await db.delete(banks)
+        .where(and(eq(banks.id, id), eq(banks.userId, userId)))
+        .returning();
+
+      if (deleted.length === 0) {
+        return res.status(404).json({ error: 'Bank not found' });
+      }
+
+      res.json({
+        success: true,
+        message: 'Bank deleted successfully'
+      });
+    } catch (error) {
+      console.error('Failed to delete bank:', error);
+      res.status(500).json({ error: 'Failed to delete bank' });
+    }
+  });
+
   // Sync endpoints
   app.post('/api/sync/pull', async (req, res) => {
     try {
@@ -457,19 +564,128 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Fetch transactions with pagination
+      // Get webhook sync state (with graceful fallback if table doesn't exist)
+      let syncState: any = null;
+      try {
+        const syncStateResult = await db.select()
+          .from(webhookSyncState)
+          .where(eq(webhookSyncState.userId, userId))
+          .limit(1);
+        syncState = syncStateResult[0];
+      } catch (error) {
+        console.warn('⚠️ webhook_sync_state table not found, will use full sync:', error);
+        syncState = null; // Will trigger full sync strategy
+      }
+
+      let transactionsToSync: string[] = []; // UP Bank transaction IDs
+      let syncStrategy = 'full'; // 'smart', 'fallback-7days', or 'full'
+
+      // Try smart sync with webhook logs
+      if (syncState?.webhookId && syncState?.lastProcessedTimestamp) {
+        try {
+          console.log('🧠 Attempting smart sync via webhook logs...');
+
+          // Get webhook logs since last processed timestamp
+          const webhookLogsResponse = await upBankClient.getWebhookLogs(
+            syncState.webhookId,
+            { pageSize: 100 }
+          );
+
+          // Find failed deliveries
+          const failedDeliveries = webhookLogsResponse.data.filter((log: any) => {
+            const deliveryStatus = log.attributes.deliveryStatus;
+            const createdAt = new Date(log.attributes.createdAt);
+            const lastProcessed = new Date(syncState.lastProcessedTimestamp);
+
+            return (
+              deliveryStatus !== 'DELIVERED' &&
+              createdAt > lastProcessed
+            );
+          });
+
+          console.log(`📊 Found ${failedDeliveries.length} failed webhook deliveries`);
+
+          // Extract transaction IDs from failed deliveries
+          for (const delivery of failedDeliveries) {
+            const txnId = delivery.relationships?.webhookEvent?.data?.relationships?.transaction?.data?.id;
+            if (txnId && !transactionsToSync.includes(txnId)) {
+              transactionsToSync.push(txnId);
+            }
+          }
+
+          if (transactionsToSync.length > 0) {
+            syncStrategy = 'smart';
+            console.log(`✅ Smart sync: Will fetch ${transactionsToSync.length} specific transactions`);
+          } else {
+            syncStrategy = 'fallback-7days';
+            console.log('✅ No failed webhooks, will do 7-day sync for safety');
+          }
+
+        } catch (webhookError) {
+          console.warn('⚠️ Webhook log check failed, falling back to 7-day sync:', webhookError);
+          syncStrategy = 'fallback-7days';
+        }
+      } else {
+        // No webhook configured yet or first sync
+        console.log('📝 No webhook state found, doing full sync');
+        syncStrategy = 'full';
+      }
+
+      // Fetch transactions based on strategy
       let allNewTransactions: any[] = [];
       let nextPageUrl: string | null = null;
       let newCount = 0;
       let updatedCount = 0;
 
-      do {
+      if (syncStrategy === 'smart') {
+        // Fetch only specific transactions that had failed webhooks
+        console.log(`🎯 Fetching ${transactionsToSync.length} specific transactions...`);
+        for (const txnId of transactionsToSync) {
+          try {
+            const txnResponse = await upBankClient.getTransaction(txnId);
+            allNewTransactions.push(txnResponse.data);
+          } catch (err) {
+            console.error(`Failed to fetch transaction ${txnId}:`, err);
+          }
+        }
+
+        // Also fetch truly NEW transactions since last sync
         const response = await upBankClient.getTransactions({
           pageSize: 100,
-          since: settingsMap.lastSync // Only fetch new transactions
+          since: settingsMap.lastSync
         });
+        allNewTransactions.push(...response.data);
 
-        for (const txn of response.data) {
+      } else if (syncStrategy === 'fallback-7days') {
+        // Fetch last 7 days of transactions as safety net
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+        const response = await upBankClient.getTransactions({
+          pageSize: 100,
+          since: sevenDaysAgo.toISOString()
+        });
+        allNewTransactions = response.data;
+
+      } else {
+        // Full sync - fetch ALL transactions (first time or fallback)
+        do {
+          const response = await upBankClient.getTransactions({
+            pageSize: 100
+          });
+
+          allNewTransactions.push(...response.data);
+          nextPageUrl = response.links?.next || null;
+
+          // Safety: don't fetch more than 500 transactions in one sync
+          if (allNewTransactions.length >= 500) break;
+        } while (nextPageUrl);
+      }
+
+      // Process all fetched transactions
+      console.log(`📦 Processing ${allNewTransactions.length} transactions...`);
+
+      for (const txn of allNewTransactions) {
           try {
             // Skip if transaction doesn't have required fields
             if (!txn.attributes || !txn.attributes.amount) {
@@ -491,7 +707,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               accountId: accountId,
               amount: txn.attributes.amount.valueInBaseUnits / 100,
               date: new Date(txn.attributes.createdAt),
-              description: txn.attributes.rawText || txn.attributes.description || 'No description',
+              description: txn.attributes.description || txn.attributes.rawText || 'No description',
               category: txn.relationships?.category?.data?.id || 'uncategorized',
               tags: txn.relationships?.tags?.data?.map((t: any) => t.id).join(',') || '',
               type: txn.attributes.amount.valueInBaseUnits > 0 ? 'credit' : 'debit',
@@ -523,15 +739,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
 
-        allNewTransactions.push(...response.data);
-        nextPageUrl = response.links?.next || null;
+      // Update webhook sync state (graceful fallback if table doesn't exist)
+      const now = new Date();
+      const nowISO = now.toISOString();
 
-        // Safety: don't fetch more than 500 transactions in one sync
-        if (allNewTransactions.length >= 500) break;
-      } while (nextPageUrl);
+      if (syncState) {
+        try {
+          await db.update(webhookSyncState)
+            .set({
+              lastProcessedTimestamp: now,
+              lastSmartSync: syncStrategy === 'smart' ? now : syncState.lastSmartSync,
+              lastFullSync: syncStrategy === 'full' ? now : syncState.lastFullSync,
+              updatedAt: now
+            })
+            .where(eq(webhookSyncState.userId, userId));
+        } catch (error) {
+          console.warn('⚠️ Could not update webhook_sync_state:', error);
+          // Continue anyway - not critical for sync to succeed
+        }
+      }
 
       // Update last sync timestamp
-      const now = new Date().toISOString();
       const lastSyncSetting = await db.select()
         .from(settings)
         .where(and(
@@ -542,7 +770,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (lastSyncSetting.length > 0) {
         await db.update(settings)
-          .set({ valueText: now, updatedAt: new Date() })
+          .set({ valueText: nowISO, updatedAt: now })
           .where(and(
             eq(settings.userId, userId),
             eq(settings.key, 'last_transaction_sync')
@@ -551,9 +779,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await db.insert(settings).values({
           userId,
           key: 'last_transaction_sync',
-          valueText: now,
+          valueText: nowISO,
           valueEncrypted: null,
-          updatedAt: new Date()
+          updatedAt: now
         });
       }
 
@@ -563,9 +791,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           newTransactions: newCount,
           updatedTransactions: updatedCount,
           totalFetched: allNewTransactions.length,
-          lastSync: now
+          lastSync: nowISO,
+          syncStrategy: syncStrategy
         },
-        message: `Synced ${newCount} new and ${updatedCount} updated transactions`
+        message: `Synced ${newCount} new and ${updatedCount} updated transactions (strategy: ${syncStrategy})`
       });
     } catch (error) {
       console.error('Transaction sync error:', error);
@@ -667,6 +896,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         category,
         tags,
         account,
+        bankId,
         notes
       } = req.body;
 
@@ -680,6 +910,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: 'SETTLED',
         source: 'manual',
         account: account || 'Manual',
+        bankId: bankId || null,
         syncStatus: 'synced',
         createdAt: new Date(),
         updatedAt: new Date()
@@ -830,15 +1061,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const imported = [];
       const errors = [];
 
-      for (const row of csvTransactions) {
+      console.log(`📥 CSV Import: Processing ${csvTransactions.length} rows...`);
+
+      for (let i = 0; i < csvTransactions.length; i++) {
+        const row = csvTransactions[i];
         try {
+          console.log(`\n📝 Processing row ${i + 1}:`, JSON.stringify(row).substring(0, 200));
+
           // Map CSV columns to transaction fields
-          const amount = Number(row[mapping.amount] || row.Amount || 0);
-          const date = new Date(row[mapping.date] || row.Date);
-          const description = row[mapping.merchant] || row[mapping.description] || row.Merchant || 'Imported';
-          const category = row[mapping.category] || row.Category || 'uncategorized';
-          const tags = row[mapping.tags] || row.Tags || '';
-          const account = row[mapping.account] || row.Account || 'Imported';
+          // Handle both single amount field OR separate debit/credit columns
+          let amount = 0;
+          if (row.amount !== undefined && row.amount !== '') {
+            // Single amount field from frontend
+            const parsedAmount = parseFloat(String(row.amount).trim() || '0');
+            amount = isNaN(parsedAmount) ? 0 : parsedAmount;
+            console.log(`  💰 Single amount: ${row.amount} → ${amount}`);
+          } else {
+            // Check for mapped debit/credit columns or direct column names
+            const debitStr = String(row.debitAmount || row[mapping.debitAmount] || row['Debit Amount'] || '').trim();
+            const creditStr = String(row.creditAmount || row[mapping.creditAmount] || row['Credit Amount'] || '').trim();
+
+            const debitAmount = debitStr ? parseFloat(debitStr) : 0;
+            const creditAmount = creditStr ? parseFloat(creditStr) : 0;
+
+            console.log(`  💰 Debit: "${debitStr}" → ${debitAmount}, Credit: "${creditStr}" → ${creditAmount}`);
+
+            // Credit is positive, Debit is negative
+            amount = creditAmount - debitAmount;
+            console.log(`  💰 Final amount: ${amount}`);
+          }
+
+          // Validate amount
+          if (isNaN(amount)) {
+            throw new Error(`Invalid amount calculated: ${amount}`);
+          }
+
+          // Parse date - handle DD/MM/YYYY format
+          let date: Date;
+          const dateStr = String(row.date || row[mapping.date] || row.Date || '').trim();
+          console.log(`  📅 Date string: "${dateStr}"`);
+
+          if (!dateStr) {
+            throw new Error('Date is required');
+          }
+
+          if (dateStr.includes('/')) {
+            // Handle DD/MM/YYYY format
+            const parts = dateStr.split('/');
+            if (parts.length === 3) {
+              const day = parseInt(parts[0]);
+              const month = parseInt(parts[1]) - 1; // 0-indexed
+              const year = parseInt(parts[2]);
+              date = new Date(year, month, day);
+              console.log(`  📅 Parsed date: ${date.toISOString()}`);
+            } else {
+              date = new Date(dateStr);
+            }
+          } else {
+            date = new Date(dateStr);
+          }
+
+          // Validate date
+          if (isNaN(date.getTime())) {
+            throw new Error(`Invalid date: ${dateStr}`);
+          }
+
+          const description = String(row.description || row[mapping.merchant] || row[mapping.description] || row.Narrative || row.Merchant || 'Imported').trim();
+          const category = String(row.category || row[mapping.category] || row.Category || 'uncategorized').trim();
+          const tags = String(row.tags || row[mapping.tags] || row.Tags || '').trim();
+          const account = String(row.account || 'Imported').trim();
+          const bankId = row.bankId || null;
+
+          console.log(`  ✅ Inserting: ${description} | ${amount} | ${date.toISOString().split('T')[0]}`);
 
           const newTxn = await db.insert(transactions).values({
             amount: String(amount),
@@ -850,19 +1144,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
             status: 'SETTLED',
             source: 'import',
             account,
+            bankId,
             syncStatus: 'synced',
             createdAt: new Date(),
             updatedAt: new Date()
           }).returning();
 
           imported.push(newTxn[0]);
+          console.log(`  ✅ Row ${i + 1} imported successfully`);
         } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+          console.error(`  ❌ Row ${i + 1} FAILED: ${errorMsg}`);
           errors.push({
+            rowNumber: i + 1,
             row,
-            error: error instanceof Error ? error.message : 'Unknown error'
+            error: errorMsg
           });
         }
       }
+
+      console.log(`\n✅ Import complete: ${imported.length} imported, ${errors.length} errors`);
 
       res.json({
         success: true,
@@ -1012,34 +1313,354 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Enhanced transactions endpoint with UP Bank integration
-  app.get('/api/transactions', async (req, res) => {
+  // Webhook Management Endpoints
+
+  // Get webhook status
+  app.get('/api/webhooks/status', async (req, res) => {
     try {
-      const { limit = 50, offset = 0, account, category, dateFrom, dateTo } = req.query;
+      const userId = 'mock-user-id';
 
-      let query = db.select().from(transactions).orderBy(desc(transactions.date));
+      // Get UP Bank token
+      const userSettings = await db.select()
+        .from(settings)
+        .where(eq(settings.userId, userId));
 
-      // Add filters
-      const conditions = [];
-      if (account) conditions.push(eq(transactions.account, account as string));
-      if (category) conditions.push(eq(transactions.category, category as string));
-      if (dateFrom) conditions.push(gte(transactions.date, new Date(dateFrom as string)));
-      if (dateTo) conditions.push(lte(transactions.date, new Date(dateTo as string)));
-
-      if (conditions.length > 0) {
-        query = query.where(and(...conditions));
+      let upBankToken = '';
+      for (const setting of userSettings) {
+        if (setting.key === 'up_bank_token' && setting.valueEncrypted) {
+          upBankToken = decryptToken(setting.valueEncrypted);
+          break;
+        }
       }
 
-      const results = await query.limit(parseInt(limit as string)).offset(parseInt(offset as string));
+      if (!upBankToken) {
+        return res.json({
+          success: true,
+          data: { configured: false, message: 'UP Bank token not configured' }
+        });
+      }
+
+      // Check webhook sync state
+      const syncStateResult = await db.select()
+        .from(webhookSyncState)
+        .where(eq(webhookSyncState.userId, userId))
+        .limit(1);
+
+      if (syncStateResult.length === 0) {
+        return res.json({
+          success: true,
+          data: { configured: false, message: 'No webhook configured' }
+        });
+      }
+
+      const syncState = syncStateResult[0];
+
+      // Fetch webhook details from UP Bank
+      const upBankClient = new UpBankApiClient(upBankToken);
+      const webhooksResponse = await upBankClient.listWebhooks();
+
+      const webhook = webhooksResponse.data.find((wh: any) => wh.id === syncState.webhookId);
 
       res.json({
         success: true,
-        data: results,
-        count: results.length
+        data: {
+          configured: true,
+          webhookId: syncState.webhookId,
+          webhookUrl: webhook?.attributes?.url || null,
+          lastProcessed: syncState.lastProcessedTimestamp,
+          lastSmartSync: syncState.lastSmartSync,
+          lastFullSync: syncState.lastFullSync
+        }
       });
     } catch (error) {
-      console.error('Get transactions error:', error);
-      res.status(500).json({ error: 'Failed to retrieve transactions' });
+      console.error('Get webhook status error:', error);
+      res.status(500).json({ error: 'Failed to get webhook status' });
+    }
+  });
+
+  // Setup webhook
+  app.post('/api/webhooks/setup', async (req, res) => {
+    console.log('🔧 Webhook setup endpoint hit');
+    console.log('📨 Request body:', JSON.stringify(req.body));
+
+    try {
+      const userId = 'mock-user-id';
+      const { webhookUrl } = req.body;
+
+      console.log(`📍 Step 1: Validating webhookUrl: ${webhookUrl}`);
+      if (!webhookUrl) {
+        console.log('❌ Webhook URL is missing');
+        return res.status(400).json({
+          success: false,
+          error: 'Webhook URL is required'
+        });
+      }
+
+      console.log('📍 Step 2: Fetching UP Bank token from settings');
+      // Get UP Bank token
+      const userSettings = await db.select()
+        .from(settings)
+        .where(eq(settings.userId, userId));
+
+      console.log(`📍 Found ${userSettings.length} settings entries`);
+
+      let upBankToken = '';
+      for (const setting of userSettings) {
+        if (setting.key === 'up_bank_token' && setting.valueEncrypted) {
+          upBankToken = decryptToken(setting.valueEncrypted);
+          console.log(`📍 Step 3: UP Bank token found and decrypted (length: ${upBankToken.length})`);
+          break;
+        }
+      }
+
+      if (!upBankToken) {
+        console.log('❌ UP Bank token not configured');
+        return res.status(400).json({
+          success: false,
+          error: 'UP Bank token not configured'
+        });
+      }
+
+      console.log(`📍 Step 4: Creating webhook in UP Bank with URL: ${webhookUrl}`);
+      // Create webhook in UP Bank
+      const upBankClient = new UpBankApiClient(upBankToken);
+      const webhookResponse = await upBankClient.createWebhook(
+        webhookUrl,
+        'ApexFinance - Transaction sync webhook'
+      );
+
+      console.log('📍 Step 5: Webhook created in UP Bank:', JSON.stringify(webhookResponse));
+      const webhookId = webhookResponse.data.id;
+      console.log(`✅ Webhook ID: ${webhookId}`);
+
+      console.log('📍 Step 6: Storing webhook sync state in database');
+      // Store webhook sync state
+      const existing = await db.select()
+        .from(webhookSyncState)
+        .where(eq(webhookSyncState.userId, userId))
+        .limit(1);
+
+      if (existing.length > 0) {
+        console.log('📍 Updating existing webhook sync state');
+        // Update existing
+        await db.update(webhookSyncState)
+          .set({
+            webhookId,
+            lastProcessedTimestamp: new Date(),
+            updatedAt: new Date()
+          })
+          .where(eq(webhookSyncState.userId, userId));
+      } else {
+        console.log('📍 Creating new webhook sync state');
+        // Insert new
+        await db.insert(webhookSyncState).values({
+          userId,
+          webhookId,
+          lastProcessedTimestamp: new Date(),
+          updatedAt: new Date()
+        });
+      }
+
+      console.log(`✅ Webhook setup complete: ${webhookId}`);
+
+      res.json({
+        success: true,
+        data: {
+          webhookId,
+          webhookUrl,
+          message: 'Webhook configured successfully'
+        }
+      });
+    } catch (error) {
+      console.error('❌ Setup webhook error:', error);
+      console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+      res.status(500).json({
+        success: false,
+        error: 'Failed to setup webhook',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Test webhook (ping)
+  app.post('/api/webhooks/test', async (req, res) => {
+    try {
+      const userId = 'mock-user-id';
+
+      // Get webhook ID from sync state
+      const syncStateResult = await db.select()
+        .from(webhookSyncState)
+        .where(eq(webhookSyncState.userId, userId))
+        .limit(1);
+
+      if (syncStateResult.length === 0) {
+        return res.status(404).json({ error: 'No webhook configured' });
+      }
+
+      const webhookId = syncStateResult[0].webhookId;
+
+      if (!webhookId) {
+        return res.status(404).json({ error: 'Webhook ID not found' });
+      }
+
+      // Get UP Bank token
+      const userSettings = await db.select()
+        .from(settings)
+        .where(eq(settings.userId, userId));
+
+      let upBankToken = '';
+      for (const setting of userSettings) {
+        if (setting.key === 'up_bank_token' && setting.valueEncrypted) {
+          upBankToken = decryptToken(setting.valueEncrypted);
+          break;
+        }
+      }
+
+      if (!upBankToken) {
+        return res.status(400).json({ error: 'UP Bank token not configured' });
+      }
+
+      // Ping webhook
+      const upBankClient = new UpBankApiClient(upBankToken);
+      await upBankClient.pingWebhook(webhookId);
+
+      console.log(`✅ Webhook pinged: ${webhookId}`);
+
+      res.json({
+        success: true,
+        message: 'Webhook ping sent successfully. Check your webhook endpoint logs.'
+      });
+    } catch (error) {
+      console.error('Test webhook error:', error);
+      res.status(500).json({
+        error: 'Failed to test webhook',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Delete webhook
+  app.delete('/api/webhooks', async (req, res) => {
+    try {
+      const userId = 'mock-user-id';
+
+      // Get webhook ID from sync state
+      const syncStateResult = await db.select()
+        .from(webhookSyncState)
+        .where(eq(webhookSyncState.userId, userId))
+        .limit(1);
+
+      if (syncStateResult.length === 0) {
+        return res.status(404).json({ error: 'No webhook configured' });
+      }
+
+      const webhookId = syncStateResult[0].webhookId;
+
+      if (!webhookId) {
+        return res.status(404).json({ error: 'Webhook ID not found' });
+      }
+
+      // Get UP Bank token
+      const userSettings = await db.select()
+        .from(settings)
+        .where(eq(settings.userId, userId));
+
+      let upBankToken = '';
+      for (const setting of userSettings) {
+        if (setting.key === 'up_bank_token' && setting.valueEncrypted) {
+          upBankToken = decryptToken(setting.valueEncrypted);
+          break;
+        }
+      }
+
+      if (!upBankToken) {
+        return res.status(400).json({ error: 'UP Bank token not configured' });
+      }
+
+      // Delete webhook from UP Bank
+      const upBankClient = new UpBankApiClient(upBankToken);
+      await upBankClient.deleteWebhook(webhookId);
+
+      // Delete webhook sync state
+      await db.delete(webhookSyncState)
+        .where(eq(webhookSyncState.userId, userId));
+
+      console.log(`✅ Webhook deleted: ${webhookId}`);
+
+      res.json({
+        success: true,
+        message: 'Webhook deleted successfully'
+      });
+    } catch (error) {
+      console.error('Delete webhook error:', error);
+      res.status(500).json({
+        error: 'Failed to delete webhook',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Get webhook delivery logs
+  app.get('/api/webhooks/logs', async (req, res) => {
+    try {
+      const userId = 'mock-user-id';
+      const { limit = 20 } = req.query;
+
+      // Get webhook ID from sync state
+      const syncStateResult = await db.select()
+        .from(webhookSyncState)
+        .where(eq(webhookSyncState.userId, userId))
+        .limit(1);
+
+      if (syncStateResult.length === 0) {
+        return res.json({
+          success: true,
+          data: []
+        });
+      }
+
+      const webhookId = syncStateResult[0].webhookId;
+
+      if (!webhookId) {
+        return res.json({
+          success: true,
+          data: []
+        });
+      }
+
+      // Get UP Bank token
+      const userSettings = await db.select()
+        .from(settings)
+        .where(eq(settings.userId, userId));
+
+      let upBankToken = '';
+      for (const setting of userSettings) {
+        if (setting.key === 'up_bank_token' && setting.valueEncrypted) {
+          upBankToken = decryptToken(setting.valueEncrypted);
+          break;
+        }
+      }
+
+      if (!upBankToken) {
+        return res.status(400).json({ error: 'UP Bank token not configured' });
+      }
+
+      // Fetch webhook logs from UP Bank
+      const upBankClient = new UpBankApiClient(upBankToken);
+      const logsResponse = await upBankClient.getWebhookLogs(webhookId, {
+        pageSize: parseInt(limit as string)
+      });
+
+      res.json({
+        success: true,
+        data: logsResponse.data
+      });
+    } catch (error) {
+      console.error('Get webhook logs error:', error);
+      res.status(500).json({
+        error: 'Failed to get webhook logs',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 
@@ -1108,10 +1729,129 @@ function decryptToken(encryptedToken: string): string {
 }
 
 async function processWebhookEvent(eventData: any) {
-  // TODO: Implement webhook event processing
-  // 1. Fetch transaction details from UP Bank
-  // 2. Update local database
-  // 3. Apply auto-tag rules if enabled
-  // 4. Handle transfer detection
-  console.log('Processing webhook event:', eventData.data.attributes.eventType);
+  try {
+    const eventType = eventData.data.attributes.eventType;
+    const transactionId = eventData.data.relationships?.transaction?.data?.id;
+
+    console.log(`🔔 Processing webhook event: ${eventType} for transaction ${transactionId}`);
+
+    // Only process transaction-related events
+    if (!transactionId || eventType === 'PING') {
+      console.log('⏭️  Skipping non-transaction event');
+      return;
+    }
+
+    // Get UP Bank token
+    const userId = 'mock-user-id';
+    const userSettings = await db.select()
+      .from(settings)
+      .where(eq(settings.userId, userId));
+
+    let upBankToken = '';
+    for (const setting of userSettings) {
+      if (setting.key === 'up_bank_token' && setting.valueEncrypted) {
+        upBankToken = decryptToken(setting.valueEncrypted);
+        break;
+      }
+    }
+
+    if (!upBankToken) {
+      console.error('❌ No UP Bank token found, cannot process webhook');
+      return;
+    }
+
+    // Fetch fresh transaction data from UP Bank
+    const upBankClient = new UpBankApiClient(upBankToken);
+    const txnResponse = await upBankClient.getTransaction(transactionId);
+    const txn = txnResponse.data;
+
+    console.log(`📥 Fetched transaction ${transactionId} from UP Bank`);
+
+    // Fetch accounts mapping for proper account names
+    const accountsResponse = await upBankClient.getAccounts();
+    const accountsMap = new Map<string, { name: string; type: string }>();
+
+    for (const acc of accountsResponse.data) {
+      const accountType = acc.attributes.accountType;
+      let emoji = '🏦';
+      if (accountType === 'SAVER') {
+        emoji = '💰';
+      } else if (accountType === 'TRANSACTIONAL') {
+        emoji = '🏦';
+      }
+
+      accountsMap.set(acc.id, {
+        name: `Up-${emoji} ${acc.attributes.displayName}`,
+        type: accountType
+      });
+    }
+
+    // Check if transaction exists in local DB
+    const existing = await db.select()
+      .from(transactions)
+      .where(eq(transactions.upTransactionId, transactionId))
+      .limit(1);
+
+    const accountId = txn.relationships?.account?.data?.id || null;
+    const accountInfo = accountId ? accountsMap.get(accountId) : null;
+
+    const transactionData = {
+      upTransactionId: txn.id,
+      accountId: accountId,
+      amount: txn.attributes.amount.valueInBaseUnits / 100,
+      date: new Date(txn.attributes.createdAt),
+      description: txn.attributes.description || txn.attributes.rawText || 'No description',
+      category: txn.relationships?.category?.data?.id || 'uncategorized',
+      tags: txn.relationships?.tags?.data?.map((t: any) => t.id).join(',') || '',
+      type: txn.attributes.amount.valueInBaseUnits > 0 ? 'credit' : 'debit',
+      status: txn.attributes.status || 'SETTLED',
+      rawData: txn,
+      syncStatus: 'synced',
+      source: 'up_bank',
+      account: accountInfo?.name || 'UP Bank',
+      updatedAt: new Date()
+    };
+
+    if (existing.length > 0) {
+      // Update existing transaction
+      await db.update(transactions)
+        .set(transactionData)
+        .where(eq(transactions.upTransactionId, transactionId));
+      console.log(`✅ Updated transaction ${transactionId} from webhook`);
+    } else {
+      // Insert new transaction
+      await db.insert(transactions).values({
+        ...transactionData,
+        userId: userId,
+        createdAt: new Date()
+      });
+      console.log(`✅ Created transaction ${transactionId} from webhook`);
+    }
+
+    // Mark webhook as processed
+    await db.update(webhookEvents)
+      .set({
+        processed: true,
+        processedAt: new Date()
+      })
+      .where(eq(webhookEvents.upTransactionId, transactionId));
+
+  } catch (error) {
+    console.error('❌ Error processing webhook event:', error);
+
+    // Store error in webhook event
+    try {
+      const transactionId = eventData.data.relationships?.transaction?.data?.id;
+      if (transactionId) {
+        await db.update(webhookEvents)
+          .set({
+            error: error instanceof Error ? error.message : 'Unknown error',
+            processedAt: new Date()
+          })
+          .where(eq(webhookEvents.upTransactionId, transactionId));
+      }
+    } catch (dbError) {
+      console.error('Failed to update webhook error:', dbError);
+    }
+  }
 }
