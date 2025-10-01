@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { startBackgroundJobs } from "./background-jobs";
 
 const app = express();
 app.use(express.json());
@@ -67,5 +68,8 @@ app.use((req, res, next) => {
     host: process.platform === 'win32' ? "127.0.0.1" : "0.0.0.0",
   }, () => {
     log(`serving on port ${port}`);
+
+    // Start background jobs after server is listening
+    startBackgroundJobs();
   });
 })();

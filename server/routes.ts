@@ -10,13 +10,16 @@ import {
   webhookEvents,
   webhookSyncState,
   syncQueue,
-  apiLogs
+  apiLogs,
+  apiUsageTracker,
+  deepSyncProgress
 } from "@shared/schema";
 import { eq, desc, and, gte, lte } from "drizzle-orm";
 import multer from 'multer';
 import path from 'path';
 import crypto from 'crypto';
 import { UpBankApiClient } from './UpBankApiClient';
+import { trackApiCall, canMakeCall, getUsageStats } from './api-rate-limiter';
 
 // Configure multer for image uploads
 const upload = multer({
@@ -886,6 +889,142 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Page load sync - lightweight sync for 100 newest transactions
+  app.post('/api/transactions/sync-page-load', async (req, res) => {
+    try {
+      console.log('\n📄 [Page Load Sync] Starting...');
+
+      const userId = 'mock-user-id';
+
+      // Check API capacity
+      if (!(await canMakeCall(1))) {
+        console.log('⏸️  [Page Load Sync] API limit reached, using local data');
+        return res.json({
+          success: true,
+          message: 'API limit reached, using cached data',
+          synced: 0
+        });
+      }
+
+      // Get UP Bank token
+      const userSettings = await db.select()
+        .from(settings)
+        .where(eq(settings.userId, userId));
+
+      let upBankToken = '';
+      for (const setting of userSettings) {
+        if (setting.key === 'up_bank_token' && setting.valueEncrypted) {
+          upBankToken = decryptToken(setting.valueEncrypted);
+          break;
+        }
+      }
+
+      if (!upBankToken) {
+        return res.status(400).json({
+          success: false,
+          error: 'UP Bank token not configured'
+        });
+      }
+
+      const upBankClient = new UpBankApiClient(upBankToken);
+
+      // Fetch only 100 newest transactions (1 API call)
+      console.log('📥 Fetching 100 newest transactions...');
+      const response = await upBankClient.getTransactions({
+        pageSize: 100
+      });
+      await trackApiCall();
+
+      const txns = response.data;
+      let newCount = 0;
+      let updatedCount = 0;
+
+      // Get account names
+      const accountsResponse = await upBankClient.getAccounts();
+      await trackApiCall();
+
+      const accountsMap = new Map<string, { name: string; type: string }>();
+      for (const acc of accountsResponse.data) {
+        const accountType = acc.attributes.accountType;
+        let emoji = '🏦';
+        if (accountType === 'SAVER') emoji = '💰';
+        else if (accountType === 'TRANSACTIONAL') emoji = '🏦';
+
+        accountsMap.set(acc.id, {
+          name: `Up-${emoji} ${acc.attributes.displayName}`,
+          type: accountType
+        });
+      }
+
+      // Update or insert each transaction
+      for (const txn of txns) {
+        const accountInfo = accountsMap.get(txn.relationships?.account?.data?.id);
+
+        const txnData = {
+          upTransactionId: txn.id,
+          accountId: txn.relationships?.account?.data?.id || null,
+          amount: txn.attributes.amount.value,
+          date: new Date(txn.attributes.createdAt),
+          description: txn.attributes.description,
+          category: txn.relationships?.category?.data?.id || null,
+          tags: txn.relationships?.tags?.data?.map((t: any) => t.id).join(',') || '',
+          type: txn.attributes.description.includes('Transfer') ? 'Transfer' : 'Purchase',
+          status: txn.attributes.status as 'HELD' | 'SETTLED',
+          rawData: txn,
+          syncStatus: 'synced' as const,
+          source: 'up_bank' as const,
+          account: accountInfo?.name || 'UP Bank',
+          updatedAt: new Date()
+        };
+
+        // Check if exists
+        const existing = await db
+          .select()
+          .from(transactions)
+          .where(eq(transactions.upTransactionId, txn.id))
+          .limit(1);
+
+        if (existing.length > 0) {
+          // Update
+          await db
+            .update(transactions)
+            .set(txnData)
+            .where(eq(transactions.upTransactionId, txn.id));
+          updatedCount++;
+        } else {
+          // Insert
+          await db.insert(transactions).values({
+            ...txnData,
+            userId: userId,
+            createdAt: new Date()
+          });
+          newCount++;
+        }
+      }
+
+      const stats = await getUsageStats();
+      console.log(`✅ [Page Load Sync] Complete: ${newCount} new, ${updatedCount} updated`);
+      console.log(`📊 API Usage: ${stats.callsUsed}/${stats.callsLimit} (${stats.percentUsed}%)`);
+
+      res.json({
+        success: true,
+        message: 'Page load sync complete',
+        synced: txns.length,
+        new: newCount,
+        updated: updatedCount,
+        apiUsage: stats
+      });
+
+    } catch (error) {
+      console.error('❌ [Page Load Sync] Error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Page load sync failed',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   // Create manual transaction
   app.post('/api/transactions', async (req, res) => {
     try {
@@ -952,57 +1091,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (category !== undefined) updateData.category = category;
       if (tags !== undefined) updateData.tags = tags;
 
-      // Update local database
+      // Update local database immediately (instant UI update)
       const updated = await db.update(transactions)
         .set(updateData)
         .where(eq(transactions.id, id))
         .returning();
 
-      // If this is an UP Bank transaction, sync changes back to UP Bank
+      // If this is an UP Bank transaction, queue the sync instead of immediate API call
       if (transaction.upTransactionId) {
-        try {
-          // Get UP Bank token
-          const userSettings = await db.select()
-            .from(settings)
-            .where(eq(settings.userId, userId));
+        console.log(`📝 Queueing sync for transaction ${id} to UP Bank`);
 
-          let upBankToken = '';
-          for (const setting of userSettings) {
-            if (setting.key === 'up_bank_token' && setting.valueEncrypted) {
-              upBankToken = decryptToken(setting.valueEncrypted);
-              break;
-            }
-          }
-
-          if (upBankToken) {
-            const upBankClient = new UpBankApiClient(upBankToken);
-
-            // Sync category change to UP Bank
-            if (category !== undefined && category !== 'uncategorized') {
-              // Validate that this is not a parent category
-              const categoriesResponse = await upBankClient.getCategories();
-              const categoryObj = categoriesResponse.data.find((c: any) => c.id === category);
-
-              if (categoryObj?.relationships?.parent?.data === null) {
-                throw new Error(`Cannot assign parent category "${category}". Please select a child category instead.`);
-              }
-
-              await upBankClient.updateTransactionCategory(transaction.upTransactionId, category);
-            }
-
-            // Sync tags change to UP Bank
-            if (tags !== undefined) {
-              const oldTags = transaction.tags ? transaction.tags.split(',').filter(Boolean) : [];
-              const newTags = tags.split(',').filter(Boolean);
-              await upBankClient.updateTransactionTags(transaction.upTransactionId, newTags, oldTags);
-            }
-
-            console.log(`✅ Synced transaction ${id} changes to UP Bank`);
-          }
-        } catch (syncError) {
-          console.error('Failed to sync to UP Bank:', syncError);
-          // Don't fail the request if UP Bank sync fails
+        // Add category update to queue
+        if (category !== undefined && category !== transaction.category) {
+          await db.insert(syncQueue).values({
+            transactionId: id,
+            upTransactionId: transaction.upTransactionId,
+            field: 'category',
+            oldValue: transaction.category || null,
+            newValue: category,
+            priority: 3, // Normal priority
+            status: 'pending'
+          });
+          console.log(`  ✓ Category queued: ${transaction.category} → ${category}`);
         }
+
+        // Add tags update to queue
+        if (tags !== undefined && tags !== transaction.tags) {
+          await db.insert(syncQueue).values({
+            transactionId: id,
+            upTransactionId: transaction.upTransactionId,
+            field: 'tags',
+            oldValue: transaction.tags || null,
+            newValue: tags,
+            priority: 3, // Normal priority
+            status: 'pending'
+          });
+          console.log(`  ✓ Tags queued: ${transaction.tags} → ${tags}`);
+        }
+
+        console.log(`✅ Transaction ${id} updated locally and queued for sync`);
       }
 
       res.json({
@@ -1659,6 +1786,126 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Get webhook logs error:', error);
       res.status(500).json({
         error: 'Failed to get webhook logs',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Sync status endpoint - returns API usage, queue stats, deep sync progress
+  app.get('/api/sync/status', async (req, res) => {
+    try {
+      const userId = 'mock-user-id';
+
+      // Get API usage stats
+      const apiStats = await getUsageStats();
+
+      // Get queue stats
+      const queueStats = await db.select()
+        .from(syncQueue)
+        .where(eq(syncQueue.status, 'pending'));
+
+      const processingQueue = await db.select()
+        .from(syncQueue)
+        .where(eq(syncQueue.status, 'processing'));
+
+      const failedQueue = await db.select()
+        .from(syncQueue)
+        .where(eq(syncQueue.status, 'failed'));
+
+      // Get deep sync progress
+      const deepSyncData = await db.select()
+        .from(deepSyncProgress)
+        .where(eq(deepSyncProgress.userId, userId))
+        .limit(1);
+
+      const deepSync = deepSyncData.length > 0 ? deepSyncData[0] : {
+        status: 'idle',
+        totalSynced: 0,
+        currentBatch: 0,
+        lastSyncedDate: null
+      };
+
+      // Calculate progress percentage
+      let progress = 0;
+      if (deepSync.status === 'running' && deepSync.totalSynced > 0) {
+        // Rough estimate: assume 10,000 total transactions
+        progress = Math.min(100, Math.round((deepSync.totalSynced / 10000) * 100));
+      } else if (deepSync.status === 'completed') {
+        progress = 100;
+      }
+
+      // Get last sync timestamp
+      const lastSyncSetting = await db.select()
+        .from(settings)
+        .where(and(
+          eq(settings.userId, userId),
+          eq(settings.key, 'last_transaction_sync')
+        ))
+        .limit(1);
+
+      const lastSync = lastSyncSetting.length > 0 ? lastSyncSetting[0].valueText : null;
+
+      res.json({
+        success: true,
+        data: {
+          apiUsage: {
+            callsUsed: apiStats.callsUsed,
+            callsLimit: apiStats.callsLimit,
+            remaining: apiStats.remaining,
+            percentUsed: apiStats.percentUsed
+          },
+          queue: {
+            pending: queueStats.length,
+            processing: processingQueue.length,
+            failed: failedQueue.length
+          },
+          deepSync: {
+            status: deepSync.status,
+            progress,
+            totalSynced: deepSync.totalSynced,
+            currentBatch: deepSync.currentBatch,
+            lastSyncedDate: deepSync.lastSyncedDate
+          },
+          lastSync
+        }
+      });
+    } catch (error) {
+      console.error('❌ Get sync status error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get sync status'
+      });
+    }
+  });
+
+  // Deep sync trigger endpoint
+  app.post('/api/sync/deep-sync', async (req, res) => {
+    try {
+      const { timeRange } = req.body;
+
+      if (!['3-months', '1-year', 'all-time'].includes(timeRange)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid time range. Must be: 3-months, 1-year, or all-time'
+        });
+      }
+
+      console.log(`🚀 Triggering deep sync: ${timeRange}`);
+
+      // Import and trigger deep sync
+      const { triggerDeepSync } = await import('./background-jobs');
+      await triggerDeepSync(timeRange);
+
+      res.json({
+        success: true,
+        message: `Deep sync started for ${timeRange}`,
+        timeRange
+      });
+    } catch (error) {
+      console.error('❌ Trigger deep sync error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to trigger deep sync',
         details: error instanceof Error ? error.message : 'Unknown error'
       });
     }

@@ -246,17 +246,37 @@ export function useTransactions(): UseTransactionsResult {
     await fetchTransactions(filters);
   };
 
+  // Page load sync - lightweight 100 transaction sync
+  const syncPageLoad = async () => {
+    try {
+      const response = await fetch('/api/transactions/sync-page-load', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        console.log(`✅ Page load sync: ${result.synced} transactions (${result.new} new, ${result.updated} updated)`);
+        // Refresh transactions after sync
+        await fetchTransactions(filters);
+      }
+    } catch (err) {
+      console.warn('Page load sync failed:', err);
+      // Don't show error to user for background sync
+    }
+  };
+
   // Load transactions on mount and do background sync
   useEffect(() => {
     // 1. Show local data immediately (instant)
     fetchTransactions();
 
-    // 2. Background: smart sync to catch missed webhooks
+    // 2. Background: page load sync (100 transactions, 1 API call)
     setTimeout(() => {
-      syncFromUpBank().catch(err => {
-        console.warn('Background sync failed:', err);
-        // Don't show error to user for background sync
-      });
+      syncPageLoad();
     }, 100);
   }, []);
 

@@ -132,18 +132,23 @@ export const webhookSyncState = pgTable("webhook_sync_state", {
 });
 
 // Sync queue for retry logic
-export const syncQueueStatusEnum = pgEnum('sync_queue_status', ['pending', 'processing', 'completed', 'failed']);
+export const syncQueueStatusEnum = pgEnum('sync_queue_status', ['pending', 'processing', 'completed', 'failed', 'conflict']);
 
 export const syncQueue = pgTable("sync_queue", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   transactionId: varchar("transaction_id").references(() => transactions.id).notNull(),
+  upTransactionId: varchar("up_transaction_id"), // UP Bank transaction ID for direct lookup
   field: text("field").notNull(), // 'category', 'tags', 'both'
+  oldValue: text("old_value"), // Previous value before change
   newValue: text("new_value").notNull(),
   attempts: integer("attempts").default(0),
   lastAttempt: timestamp("last_attempt"),
   status: syncQueueStatusEnum("status").default('pending'),
+  priority: integer("priority").default(3), // 1=high, 5=low
+  scheduledFor: timestamp("scheduled_for"), // Retry after this time
   error: text("error"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // API logs for monitoring and debugging
@@ -159,6 +164,34 @@ export const apiLogs = pgTable("api_logs", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// API usage tracker for rate limiting
+export const apiUsageTracker = pgTable("api_usage_tracker", {
+  hourWindow: timestamp("hour_window").primaryKey(), // Rounded to hour: "2025-10-02T03:00:00Z"
+  callsUsed: integer("calls_used").default(0).notNull(),
+  callsLimit: integer("calls_limit").default(1000).notNull(),
+  lastReset: timestamp("last_reset").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Deep sync progress tracking
+export const deepSyncStatusEnum = pgEnum('deep_sync_status', ['idle', 'running', 'paused', 'completed', 'error']);
+
+export const deepSyncProgress = pgTable("deep_sync_progress", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  lastSyncedCursor: text("last_synced_cursor"), // UP Bank pagination cursor
+  lastSyncedDate: timestamp("last_synced_date"), // Date of oldest synced transaction
+  status: deepSyncStatusEnum("status").default('idle').notNull(),
+  totalSynced: integer("total_synced").default(0).notNull(),
+  currentBatch: integer("current_batch").default(0).notNull(),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  error: text("error"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Insert schemas
 export const insertSettingsSchema = createInsertSchema(settings);
 export const insertBankSchema = createInsertSchema(banks);
@@ -168,6 +201,8 @@ export const insertWebhookEventSchema = createInsertSchema(webhookEvents);
 export const insertWebhookSyncStateSchema = createInsertSchema(webhookSyncState);
 export const insertSyncQueueSchema = createInsertSchema(syncQueue);
 export const insertApiLogSchema = createInsertSchema(apiLogs);
+export const insertApiUsageTrackerSchema = createInsertSchema(apiUsageTracker);
+export const insertDeepSyncProgressSchema = createInsertSchema(deepSyncProgress);
 
 // Select types
 export type Setting = typeof settings.$inferSelect;
@@ -178,6 +213,8 @@ export type WebhookEvent = typeof webhookEvents.$inferSelect;
 export type WebhookSyncState = typeof webhookSyncState.$inferSelect;
 export type SyncQueueItem = typeof syncQueue.$inferSelect;
 export type ApiLog = typeof apiLogs.$inferSelect;
+export type ApiUsageTracker = typeof apiUsageTracker.$inferSelect;
+export type DeepSyncProgress = typeof deepSyncProgress.$inferSelect;
 
 // Insert types
 export type InsertSetting = z.infer<typeof insertSettingsSchema>;

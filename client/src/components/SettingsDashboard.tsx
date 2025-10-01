@@ -74,6 +74,10 @@ export function SettingsDashboard({ className = "" }: SettingsDashboardProps) {
   const [webhookLoading, setWebhookLoading] = useState(false);
   const [showWebhookLogs, setShowWebhookLogs] = useState(false);
 
+  // Sync status state
+  const [syncStatus, setSyncStatus] = useState<any>(null);
+  const [deepSyncRunning, setDeepSyncRunning] = useState(false);
+
   // Banks configuration
   const [banks, setBanks] = useState<any[]>([]);
   const [newBank, setNewBank] = useState({ name: '', bankType: 'up_bank', apiToken: '', enabled: true });
@@ -84,6 +88,11 @@ export function SettingsDashboard({ className = "" }: SettingsDashboardProps) {
     loadSettings();
     loadBanks();
     loadWebhookStatus();
+    loadSyncStatus();
+
+    // Auto-refresh sync status every 10 seconds
+    const interval = setInterval(loadSyncStatus, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   // Initialize UP Bank client when token changes
@@ -488,6 +497,46 @@ export function SettingsDashboard({ className = "" }: SettingsDashboardProps) {
     }
   };
 
+  // Sync status functions
+  const loadSyncStatus = async () => {
+    try {
+      const response = await fetch('/api/sync/status');
+      const result = await response.json();
+      if (result.success) {
+        setSyncStatus(result.data);
+        setDeepSyncRunning(result.data.deepSync.status === 'running');
+      }
+    } catch (error) {
+      console.error('Failed to load sync status:', error);
+    }
+  };
+
+  const handleDeepSync = async (timeRange: string) => {
+    if (deepSyncRunning) {
+      alert('Deep sync is already running');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/sync/deep-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timeRange })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        alert(`Deep sync started for ${timeRange}. Check progress in the Sync Status card.`);
+        await loadSyncStatus();
+      } else {
+        alert(result.error || 'Failed to start deep sync');
+      }
+    } catch (error) {
+      alert('Failed to start deep sync');
+      console.error(error);
+    }
+  };
+
   return (
     <div className={`space-y-6 ${className}`}>
       {/* Header */}
@@ -826,6 +875,126 @@ export function SettingsDashboard({ className = "" }: SettingsDashboardProps) {
                       </table>
                     )}
                   </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Sync Status & API Usage */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Activity className="w-5 h-5 mr-2 text-indigo-500" />
+                Sync Status & API Usage
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {syncStatus ? (
+                <>
+                  {/* API Usage Bar */}
+                  <div>
+                    <div className="flex justify-between text-sm mb-2">
+                      <span className="font-medium">API Calls This Hour</span>
+                      <span className="text-gray-600">
+                        {syncStatus.apiUsage.callsUsed} / {syncStatus.apiUsage.callsLimit}
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-3">
+                      <div
+                        className={`h-3 rounded-full transition-all ${
+                          syncStatus.apiUsage.percentUsed > 90
+                            ? 'bg-red-600'
+                            : syncStatus.apiUsage.percentUsed > 70
+                            ? 'bg-yellow-600'
+                            : 'bg-blue-600'
+                        }`}
+                        style={{ width: `${syncStatus.apiUsage.percentUsed}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {syncStatus.apiUsage.remaining} calls remaining
+                    </p>
+                  </div>
+
+                  {/* Queue Status */}
+                  <div>
+                    <Label className="mb-2 block">Queue Status</Label>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="text-center p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                        <div className="text-2xl font-bold text-yellow-800">
+                          {syncStatus.queue.pending}
+                        </div>
+                        <div className="text-xs text-yellow-700">Pending</div>
+                      </div>
+                      <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-200">
+                        <div className="text-2xl font-bold text-blue-800">
+                          {syncStatus.queue.processing}
+                        </div>
+                        <div className="text-xs text-blue-700">Processing</div>
+                      </div>
+                      <div className="text-center p-3 bg-red-50 rounded-lg border border-red-200">
+                        <div className="text-2xl font-bold text-red-800">
+                          {syncStatus.queue.failed}
+                        </div>
+                        <div className="text-xs text-red-700">Failed</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Deep Sync Status */}
+                  {syncStatus.deepSync.status !== 'idle' && (
+                    <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm font-medium text-purple-900">
+                          Background Sync
+                        </span>
+                        <Badge className="bg-purple-100 text-purple-800 border-purple-300">
+                          {syncStatus.deepSync.status}
+                        </Badge>
+                      </div>
+                      <div className="w-full bg-purple-200 rounded-full h-2 mb-2">
+                        <div
+                          className="bg-purple-600 h-2 rounded-full transition-all"
+                          style={{ width: `${syncStatus.deepSync.progress}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-purple-700">
+                        {syncStatus.deepSync.totalSynced.toLocaleString()} transactions synced
+                        {syncStatus.deepSync.lastSyncedDate && (
+                          <> • Oldest: {new Date(syncStatus.deepSync.lastSyncedDate).toLocaleDateString()}</>
+                        )}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Deep Sync Trigger */}
+                  <div>
+                    <Label className="mb-2 block">Manual Deep Sync</Label>
+                    <Select onValueChange={handleDeepSync} disabled={deepSyncRunning}>
+                      <SelectTrigger>
+                        <SelectValue placeholder={deepSyncRunning ? "Sync running..." : "Start Deep Sync..."} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="3-months">Last 3 Months</SelectItem>
+                        <SelectItem value="1-year">Last Year</SelectItem>
+                        <SelectItem value="all-time">All Time</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-gray-500 mt-2">
+                      Deep sync fetches all historical transactions. Runs in background and respects API limits. Use sparingly.
+                    </p>
+                  </div>
+
+                  {/* Last Sync */}
+                  {syncStatus.lastSync && (
+                    <div className="text-xs text-gray-500 pt-2 border-t">
+                      Last sync: {new Date(syncStatus.lastSync).toLocaleString()}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="flex items-center justify-center p-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
                 </div>
               )}
             </CardContent>
