@@ -48,7 +48,11 @@ export const banks = pgTable("banks", {
   name: text("name").notNull(),
   bankType: bankTypeEnum("bank_type").default('other'),
   apiToken: text("api_token"), // Encrypted token
+  accountNumber: text("account_number"), // Optional account number for reference
+  csvConfig: jsonb("csv_config"), // JSON config for CSV column mapping
   enabled: boolean("enabled").default(true),
+  lastSync: timestamp("last_sync"), // Last successful sync/upload
+  transactionCount: integer("transaction_count").default(0), // Cached count for quick display
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -192,6 +196,33 @@ export const deepSyncProgress = pgTable("deep_sync_progress", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Account settings for custom display, goals, and organization
+export const accountSettings = pgTable("account_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  upAccountId: varchar("up_account_id").notNull(), // UP Bank account ID
+  displayOrder: integer("display_order").default(0),
+  isPinned: boolean("is_pinned").default(false),
+  goalAmount: decimal("goal_amount", { precision: 12, scale: 2 }), // User-defined savings goal
+  goalName: text("goal_name"), // Optional goal label
+  customGroup: text("custom_group"), // e.g., "Bills", "Savings", "Goals", "Spending"
+  isHidden: boolean("is_hidden").default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Column configurations for customizable account grouping columns
+export const columnConfigurations = pgTable("column_configurations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  bankId: varchar("bank_id").references(() => banks.id), // NULL means default columns for all banks
+  columnName: text("column_name").notNull(), // e.g., "Mortgage", "Spending", "Bills"
+  displayOrder: integer("display_order").default(0), // Left-to-right order
+  isDefault: boolean("is_default").default(false), // true for Spending/Bills/Savers
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Insert schemas
 export const insertSettingsSchema = createInsertSchema(settings);
 export const insertBankSchema = createInsertSchema(banks);
@@ -203,6 +234,8 @@ export const insertSyncQueueSchema = createInsertSchema(syncQueue);
 export const insertApiLogSchema = createInsertSchema(apiLogs);
 export const insertApiUsageTrackerSchema = createInsertSchema(apiUsageTracker);
 export const insertDeepSyncProgressSchema = createInsertSchema(deepSyncProgress);
+export const insertAccountSettingsSchema = createInsertSchema(accountSettings);
+export const insertColumnConfigurationSchema = createInsertSchema(columnConfigurations);
 
 // Select types
 export type Setting = typeof settings.$inferSelect;
@@ -215,6 +248,8 @@ export type SyncQueueItem = typeof syncQueue.$inferSelect;
 export type ApiLog = typeof apiLogs.$inferSelect;
 export type ApiUsageTracker = typeof apiUsageTracker.$inferSelect;
 export type DeepSyncProgress = typeof deepSyncProgress.$inferSelect;
+export type AccountSettings = typeof accountSettings.$inferSelect;
+export type ColumnConfiguration = typeof columnConfigurations.$inferSelect;
 
 // Insert types
 export type InsertSetting = z.infer<typeof insertSettingsSchema>;
@@ -225,3 +260,5 @@ export type InsertWebhookEvent = z.infer<typeof insertWebhookEventSchema>;
 export type InsertWebhookSyncState = z.infer<typeof insertWebhookSyncStateSchema>;
 export type InsertSyncQueueItem = z.infer<typeof insertSyncQueueSchema>;
 export type InsertApiLog = z.infer<typeof insertApiLogSchema>;
+export type InsertAccountSettings = z.infer<typeof insertAccountSettingsSchema>;
+export type InsertColumnConfiguration = z.infer<typeof insertColumnConfigurationSchema>;

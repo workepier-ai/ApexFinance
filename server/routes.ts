@@ -12,7 +12,9 @@ import {
   syncQueue,
   apiLogs,
   apiUsageTracker,
-  deepSyncProgress
+  deepSyncProgress,
+  accountSettings,
+  columnConfigurations
 } from "@shared/schema";
 import { eq, desc, and, gte, lte, like, ilike, sql } from "drizzle-orm";
 import multer from 'multer';
@@ -21,21 +23,21 @@ import crypto from 'crypto';
 import { UpBankApiClient } from './UpBankApiClient';
 import { trackApiCall, canMakeCall, getUsageStats } from './api-rate-limiter';
 
-// Configure multer for image uploads
+// Configure multer for file uploads (images, PDFs, CSVs)
 const upload = multer({
-  dest: 'uploads/',
+  storage: multer.memoryStorage(), // Store in memory for CSV processing
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB limit
   },
   fileFilter: (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png|pdf/;
+    const allowedTypes = /jpeg|jpg|png|pdf|csv/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
+    const mimetype = allowedTypes.test(file.mimetype) || file.mimetype === 'text/csv';
 
     if (mimetype && extname) {
       return cb(null, true);
     } else {
-      cb(new Error('Only images (JPEG, JPG, PNG) and PDF files are allowed'));
+      cb(new Error('Only images (JPEG, JPG, PNG), PDF files, and CSV files are allowed'));
     }
   }
 });
@@ -364,6 +366,382 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Account Settings API endpoints
+  // GET all account settings for user
+  app.get('/api/account-settings', async (req, res) => {
+    try {
+      const userId = 'mock-user-id';
+
+      const userAccountSettings = await db.select()
+        .from(accountSettings)
+        .where(eq(accountSettings.userId, userId))
+        .orderBy(accountSettings.displayOrder);
+
+      res.json({
+        success: true,
+        data: userAccountSettings
+      });
+    } catch (error) {
+      console.error('Get account settings error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to retrieve account settings'
+      });
+    }
+  });
+
+  // GET single account setting
+  app.get('/api/account-settings/:accountId', async (req, res) => {
+    try {
+      const userId = 'mock-user-id';
+      const { accountId } = req.params;
+
+      const [accountSetting] = await db.select()
+        .from(accountSettings)
+        .where(and(
+          eq(accountSettings.userId, userId),
+          eq(accountSettings.upAccountId, accountId)
+        ));
+
+      if (!accountSetting) {
+        return res.status(404).json({
+          success: false,
+          error: 'Account settings not found'
+        });
+      }
+
+      res.json({
+        success: true,
+        data: accountSetting
+      });
+    } catch (error) {
+      console.error('Get account setting error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to retrieve account setting'
+      });
+    }
+  });
+
+  // PUT/UPDATE account settings for specific account
+  app.put('/api/account-settings/:accountId', async (req, res) => {
+    try {
+      const userId = 'mock-user-id';
+      const { accountId } = req.params;
+      const { goalAmount, goalName, customGroup, isPinned, isHidden, displayOrder } = req.body;
+
+      // Check if settings exist
+      const [existing] = await db.select()
+        .from(accountSettings)
+        .where(and(
+          eq(accountSettings.userId, userId),
+          eq(accountSettings.upAccountId, accountId)
+        ));
+
+      if (existing) {
+        // Update existing
+        const [updated] = await db.update(accountSettings)
+          .set({
+            goalAmount: goalAmount !== undefined ? goalAmount : existing.goalAmount,
+            goalName: goalName !== undefined ? goalName : existing.goalName,
+            customGroup: customGroup !== undefined ? customGroup : existing.customGroup,
+            isPinned: isPinned !== undefined ? isPinned : existing.isPinned,
+            isHidden: isHidden !== undefined ? isHidden : existing.isHidden,
+            displayOrder: displayOrder !== undefined ? displayOrder : existing.displayOrder,
+            updatedAt: new Date()
+          })
+          .where(and(
+            eq(accountSettings.userId, userId),
+            eq(accountSettings.upAccountId, accountId)
+          ))
+          .returning();
+
+        res.json({
+          success: true,
+          data: updated
+        });
+      } else {
+        // Create new
+        const [created] = await db.insert(accountSettings)
+          .values({
+            userId,
+            upAccountId: accountId,
+            goalAmount,
+            goalName,
+            customGroup,
+            isPinned: isPinned || false,
+            isHidden: isHidden || false,
+            displayOrder: displayOrder || 0
+          })
+          .returning();
+
+        res.json({
+          success: true,
+          data: created
+        });
+      }
+    } catch (error) {
+      console.error('Update account settings error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to update account settings'
+      });
+    }
+  });
+
+  // POST bulk reorder accounts
+  app.post('/api/account-settings/reorder', async (req, res) => {
+    try {
+      const userId = 'mock-user-id';
+      const { accountOrders } = req.body; // Array of { accountId, displayOrder }
+
+      // Update display order for each account
+      const promises = accountOrders.map(async ({ accountId, displayOrder }: any) => {
+        // Check if settings exist
+        const [existing] = await db.select()
+          .from(accountSettings)
+          .where(and(
+            eq(accountSettings.userId, userId),
+            eq(accountSettings.upAccountId, accountId)
+          ));
+
+        if (existing) {
+          return db.update(accountSettings)
+            .set({ displayOrder, updatedAt: new Date() })
+            .where(and(
+              eq(accountSettings.userId, userId),
+              eq(accountSettings.upAccountId, accountId)
+            ));
+        } else {
+          return db.insert(accountSettings)
+            .values({
+              userId,
+              upAccountId: accountId,
+              displayOrder
+            });
+        }
+      });
+
+      await Promise.all(promises);
+
+      res.json({
+        success: true,
+        message: 'Account order updated successfully'
+      });
+    } catch (error) {
+      console.error('Reorder accounts error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to reorder accounts'
+      });
+    }
+  });
+
+  // POST cleanup - detect removed accounts
+  app.post('/api/account-settings/cleanup', async (req, res) => {
+    try {
+      const userId = 'mock-user-id';
+      const { currentAccountIds } = req.body; // Array of current UP account IDs
+
+      // Get all stored account settings
+      const storedSettings = await db.select()
+        .from(accountSettings)
+        .where(eq(accountSettings.userId, userId));
+
+      // Find settings for accounts no longer in UP Bank
+      const removedAccounts = storedSettings.filter(
+        setting => !currentAccountIds.includes(setting.upAccountId)
+      );
+
+      res.json({
+        success: true,
+        data: {
+          removedAccounts: removedAccounts.map(acc => ({
+            id: acc.id,
+            upAccountId: acc.upAccountId,
+            goalName: acc.goalName
+          }))
+        }
+      });
+    } catch (error) {
+      console.error('Cleanup account settings error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to check for removed accounts'
+      });
+    }
+  });
+
+  // DELETE account settings
+  app.delete('/api/account-settings/:accountId', async (req, res) => {
+    try {
+      const userId = 'mock-user-id';
+      const { accountId } = req.params;
+
+      await db.delete(accountSettings)
+        .where(and(
+          eq(accountSettings.userId, userId),
+          eq(accountSettings.upAccountId, accountId)
+        ));
+
+      res.json({
+        success: true,
+        message: 'Account settings deleted successfully'
+      });
+    } catch (error) {
+      console.error('Delete account settings error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to delete account settings'
+      });
+    }
+  });
+
+  // Column Configurations API endpoints
+  app.get('/api/column-configurations', async (req, res) => {
+    try {
+      const userId = 'mock-user-id';
+      const { bankId } = req.query;
+
+      const whereConditions = [eq(columnConfigurations.userId, userId)];
+      if (bankId) {
+        whereConditions.push(eq(columnConfigurations.bankId, bankId as string));
+      }
+
+      const configs = await db.select()
+        .from(columnConfigurations)
+        .where(and(...whereConditions))
+        .orderBy(columnConfigurations.displayOrder);
+
+      res.json({
+        success: true,
+        data: configs
+      });
+    } catch (error) {
+      console.error('Get column configurations error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch column configurations'
+      });
+    }
+  });
+
+  app.post('/api/column-configurations', async (req, res) => {
+    try {
+      const userId = 'mock-user-id';
+      const { bankId, columnName, displayOrder } = req.body;
+
+      if (!columnName) {
+        return res.status(400).json({ error: 'Column name is required' });
+      }
+
+      const [newConfig] = await db.insert(columnConfigurations).values({
+        userId,
+        bankId: bankId || null,
+        columnName,
+        displayOrder: displayOrder ?? 999,
+        isDefault: false
+      }).returning();
+
+      res.json({
+        success: true,
+        data: newConfig
+      });
+    } catch (error) {
+      console.error('Create column configuration error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to create column configuration'
+      });
+    }
+  });
+
+  app.put('/api/column-configurations/:id', async (req, res) => {
+    try {
+      const userId = 'mock-user-id';
+      const { id } = req.params;
+      const { columnName, displayOrder } = req.body;
+
+      const [updated] = await db.update(columnConfigurations)
+        .set({
+          columnName,
+          displayOrder,
+          updatedAt: new Date()
+        })
+        .where(and(
+          eq(columnConfigurations.id, id),
+          eq(columnConfigurations.userId, userId),
+          eq(columnConfigurations.isDefault, false) // Prevent editing default columns
+        ))
+        .returning();
+
+      if (!updated) {
+        return res.status(404).json({
+          success: false,
+          error: 'Column configuration not found or cannot be edited'
+        });
+      }
+
+      res.json({
+        success: true,
+        data: updated
+      });
+    } catch (error) {
+      console.error('Update column configuration error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to update column configuration'
+      });
+    }
+  });
+
+  app.delete('/api/column-configurations/:id', async (req, res) => {
+    try {
+      const userId = 'mock-user-id';
+      const { id } = req.params;
+
+      // First check if this is a default column
+      const existing = await db.select()
+        .from(columnConfigurations)
+        .where(and(
+          eq(columnConfigurations.id, id),
+          eq(columnConfigurations.userId, userId)
+        ))
+        .limit(1);
+
+      if (existing.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: 'Column configuration not found'
+        });
+      }
+
+      if (existing[0].isDefault) {
+        return res.status(400).json({
+          success: false,
+          error: 'Cannot delete default columns'
+        });
+      }
+
+      await db.delete(columnConfigurations)
+        .where(and(
+          eq(columnConfigurations.id, id),
+          eq(columnConfigurations.userId, userId)
+        ));
+
+      res.json({
+        success: true,
+        message: 'Column configuration deleted successfully'
+      });
+    } catch (error) {
+      console.error('Delete column configuration error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to delete column configuration'
+      });
+    }
+  });
+
   // Banks API endpoints
   app.get('/api/banks', async (req, res) => {
     try {
@@ -466,6 +844,203 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Failed to delete bank:', error);
       res.status(500).json({ error: 'Failed to delete bank' });
+    }
+  });
+
+  // Upload CSV for specific bank
+  app.post('/api/banks/:id/upload-csv', upload.single('file'), async (req, res) => {
+    try {
+      const { id: bankId } = req.params;
+      const userId = 'mock-user-id';
+      const file = req.file;
+
+      if (!file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+      }
+
+      // Verify bank exists and belongs to user
+      const [bank] = await db.select()
+        .from(banks)
+        .where(and(eq(banks.id, bankId), eq(banks.userId, userId)));
+
+      if (!bank) {
+        return res.status(404).json({ error: 'Bank not found' });
+      }
+
+      // Parse CSV and import transactions
+      const fileContent = file.buffer.toString('utf-8');
+      const lines = fileContent.split('\n').filter(line => line.trim());
+
+      if (lines.length < 2) {
+        return res.status(400).json({ error: 'CSV file is empty or invalid' });
+      }
+
+      const headers = lines[0].split(',').map(h => h.trim());
+      const imported = [];
+
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',').map(v => v.trim());
+        const row: any = {};
+        headers.forEach((header, idx) => {
+          row[header] = values[idx];
+        });
+
+        // Parse transaction data (adjust column names based on your CSV format)
+        const amount = parseFloat(row.amount || row.Amount || '0');
+        const date = new Date(row.date || row.Date);
+        const description = row.description || row.Description || 'Unknown';
+        const category = row.category || row.Category || null;
+
+        if (amount && !isNaN(date.getTime())) {
+          const [transaction] = await db.insert(transactions).values({
+            bankId,
+            amount: amount.toString(),
+            date,
+            description,
+            category,
+            source: 'import',
+            account: bank.name,
+            syncStatus: 'synced'
+          }).returning();
+          imported.push(transaction);
+        }
+      }
+
+      // Update bank's last sync and transaction count
+      const [count] = await db.select({ count: sql<number>`count(*)::int` })
+        .from(transactions)
+        .where(eq(transactions.bankId, bankId));
+
+      await db.update(banks)
+        .set({
+          lastSync: new Date(),
+          transactionCount: count.count,
+          updatedAt: new Date()
+        })
+        .where(eq(banks.id, bankId));
+
+      res.json({
+        success: true,
+        message: `Imported ${imported.length} transactions`,
+        count: imported.length
+      });
+    } catch (error) {
+      console.error('Failed to upload CSV:', error);
+      res.status(500).json({ error: 'Failed to upload CSV' });
+    }
+  });
+
+  // Delete all transactions for a specific bank
+  app.delete('/api/banks/:id/transactions', async (req, res) => {
+    try {
+      const { id: bankId } = req.params;
+      const userId = 'mock-user-id';
+
+      // Verify bank exists and belongs to user
+      const [bank] = await db.select()
+        .from(banks)
+        .where(and(eq(banks.id, bankId), eq(banks.userId, userId)));
+
+      if (!bank) {
+        return res.status(404).json({ error: 'Bank not found' });
+      }
+
+      // Delete all transactions for this bank
+      const deleted = await db.delete(transactions)
+        .where(eq(transactions.bankId, bankId))
+        .returning();
+
+      // Update bank's transaction count
+      await db.update(banks)
+        .set({
+          transactionCount: 0,
+          updatedAt: new Date()
+        })
+        .where(eq(banks.id, bankId));
+
+      res.json({
+        success: true,
+        message: `Deleted ${deleted.length} transactions`,
+        count: deleted.length
+      });
+    } catch (error) {
+      console.error('Failed to delete transactions:', error);
+      res.status(500).json({ error: 'Failed to delete transactions' });
+    }
+  });
+
+  // Sync specific bank (for UP Bank API integration)
+  app.post('/api/banks/:id/sync', async (req, res) => {
+    try {
+      const { id: bankId } = req.params;
+      const userId = 'mock-user-id';
+
+      // Verify bank exists and belongs to user
+      const [bank] = await db.select()
+        .from(banks)
+        .where(and(eq(banks.id, bankId), eq(banks.userId, userId)));
+
+      if (!bank) {
+        return res.status(404).json({ error: 'Bank not found' });
+      }
+
+      if (bank.bankType !== 'up_bank' || !bank.apiToken) {
+        return res.status(400).json({ error: 'Bank does not support API sync' });
+      }
+
+      // Trigger sync using the bank's API token
+      // This will reuse the existing UP Bank sync logic
+      const upClient = new UpBankApiClient(decryptToken(bank.apiToken));
+      const result = await upClient.listTransactions({ pageSize: 100 });
+
+      let syncedCount = 0;
+      for (const txn of result.data) {
+        // Check if transaction already exists
+        const existing = await db.select()
+          .from(transactions)
+          .where(eq(transactions.upTransactionId, txn.id));
+
+        if (existing.length === 0) {
+          await db.insert(transactions).values({
+            upTransactionId: txn.id,
+            bankId,
+            accountId: txn.relationships?.account?.data?.id,
+            amount: txn.attributes.amount.value,
+            date: new Date(txn.attributes.createdAt),
+            description: txn.attributes.description,
+            category: txn.relationships?.category?.data?.id || null,
+            type: txn.attributes.message || null,
+            status: txn.attributes.status as any,
+            rawData: txn,
+            source: 'up_bank',
+            account: bank.name,
+            syncStatus: 'synced'
+          });
+          syncedCount++;
+        }
+      }
+
+      // Update bank's last sync and transaction count
+      const [count] = await db.select({ count: sql<number>`count(*)::int` })
+        .from(transactions)
+        .where(eq(transactions.bankId, bankId));
+
+      await db.update(banks)
+        .set({
+          lastSync: new Date(),
+          transactionCount: count.count,
+          updatedAt: new Date()
+        })
+        .where(eq(banks.id, bankId));
+
+      res.json({
+        success: true,
+        message: `Synced ${syncedCount} new transactions`,
+        count: syncedCount
+      });
+    } catch (error) {
+      console.error('Failed to sync bank:', error);
+      res.status(500).json({ error: 'Failed to sync bank' });
     }
   });
 
@@ -912,27 +1487,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Get UP Bank token
-      const userSettings = await db.select()
-        .from(settings)
-        .where(eq(settings.userId, userId));
+      // Get UP Bank account from banks table
+      const [upBankAccount] = await db.select()
+        .from(banks)
+        .where(and(
+          eq(banks.userId, userId),
+          eq(banks.bankType, 'up_bank'),
+          eq(banks.enabled, true)
+        ));
 
-      let upBankToken = '';
-      for (const setting of userSettings) {
-        if (setting.key === 'up_bank_token' && setting.valueEncrypted) {
-          upBankToken = decryptToken(setting.valueEncrypted);
-          break;
-        }
-      }
-
-      if (!upBankToken) {
+      if (!upBankAccount || !upBankAccount.apiToken) {
         return res.status(400).json({
           success: false,
-          error: 'UP Bank token not configured'
+          error: 'UP Bank account not configured'
         });
       }
 
-      const upBankClient = new UpBankApiClient(upBankToken);
+      const upBankClient = new UpBankApiClient(decryptToken(upBankAccount.apiToken));
 
       // Fetch only 100 newest transactions (1 API call)
       console.log('📥 Fetching 100 newest transactions...');
@@ -969,6 +1540,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const txnData = {
           upTransactionId: txn.id,
           accountId: txn.relationships?.account?.data?.id || null,
+          bankId: upBankAccount.id,
           amount: txn.attributes.amount.value,
           date: new Date(txn.attributes.createdAt),
           description: txn.attributes.description,
@@ -979,7 +1551,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           rawData: txn,
           syncStatus: 'synced' as const,
           source: 'up_bank' as const,
-          account: accountInfo?.name || 'UP Bank',
+          account: accountInfo?.name || upBankAccount.name,
           updatedAt: new Date()
         };
 
@@ -1154,7 +1726,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
 
-      // Only allow deleting manual transactions
+      // Only allow deleting manual and imported transactions
       const txn = await db.select()
         .from(transactions)
         .where(eq(transactions.id, id))
@@ -1164,7 +1736,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: 'Transaction not found' });
       }
 
-      if (txn[0].source !== 'manual') {
+      if (txn[0].source !== 'manual' && txn[0].source !== 'import') {
         return res.status(400).json({
           error: 'Cannot delete UP Bank transactions. Please delete from UP Bank app.'
         });
@@ -1179,6 +1751,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Delete transaction error:', error);
       res.status(500).json({ error: 'Failed to delete transaction' });
+    }
+  });
+
+  // Bulk delete transactions
+  app.post('/api/transactions/bulk-delete', async (req, res) => {
+    try {
+      const { transactionIds } = req.body;
+
+      if (!transactionIds || !Array.isArray(transactionIds) || transactionIds.length === 0) {
+        return res.status(400).json({ error: 'Invalid transaction IDs' });
+      }
+
+      // Get all transactions to check if they can be deleted
+      const txns = await db.select()
+        .from(transactions)
+        .where(sql`${transactions.id} = ANY(${transactionIds})`);
+
+      // Check if any are UP Bank transactions
+      const upBankTxns = txns.filter(t => t.source === 'up_bank');
+      if (upBankTxns.length > 0) {
+        return res.status(400).json({
+          error: `Cannot delete ${upBankTxns.length} UP Bank transaction(s). Only manual and imported transactions can be deleted.`
+        });
+      }
+
+      // Delete all valid transactions
+      const deletableIds = txns.filter(t => t.source === 'manual' || t.source === 'import').map(t => t.id);
+
+      if (deletableIds.length === 0) {
+        return res.status(400).json({ error: 'No transactions can be deleted' });
+      }
+
+      await db.delete(transactions).where(sql`${transactions.id} = ANY(${deletableIds})`);
+
+      res.json({
+        success: true,
+        message: `Deleted ${deletableIds.length} transaction(s)`,
+        count: deletableIds.length
+      });
+    } catch (error) {
+      console.error('Bulk delete error:', error);
+      res.status(500).json({ error: 'Failed to delete transactions' });
     }
   });
 
@@ -1405,12 +2019,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'UP Bank token not configured' });
       }
 
+      // Get UP Bank entry from banks table
+      const upBankEntry = await db.select()
+        .from(banks)
+        .where(and(
+          eq(banks.userId, userId),
+          eq(banks.bankType, 'up_bank')
+        ))
+        .limit(1);
+
+      const bankInfo = upBankEntry[0] || {
+        id: null,
+        name: 'UP Bank',
+        bankType: 'up_bank'
+      };
+
+      // Get bank emoji based on type
+      const getBankEmoji = (bankType: string) => {
+        const emojiMap: Record<string, string> = {
+          'up_bank': '🟠',
+          'commbank': '🟡',
+          'westpac': '🔴',
+          'nab': '🔵',
+          'anz': '⚪',
+          'other': '🏦'
+        };
+        return emojiMap[bankType] || '🏦';
+      };
+
       const upBankClient = new UpBankApiClient(upBankToken);
       const accounts = await upBankClient.getAccounts();
 
+      // Enrich accounts with bank information
+      const enrichedAccounts = accounts.data.map((account: any) => ({
+        ...account,
+        bank: {
+          id: bankInfo.id,
+          name: bankInfo.name,
+          emoji: getBankEmoji(bankInfo.bankType || 'up_bank')
+        }
+      }));
+
       res.json({
         success: true,
-        data: accounts.data
+        data: enrichedAccounts
       });
     } catch (error) {
       console.error('Get accounts error:', error);
